@@ -3,7 +3,7 @@
     "displayName": "In-Query Generator",
     "publisher": "YakovT",
     "description": "An extension to copy query results as an IN SQL statement by Yakov T",
-    "version": "0.0.2",
+    "version": "0.0.4",
     "engines": {
         "vscode": "^1.50.0"
     },

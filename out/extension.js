@@ -49,7 +49,8 @@ function processSelection() {
                 const selection = editor.selection;
                 const selectedText = editor.document.getText(selection);
                 if (selectedText) {
-                    const inStatement = generateInStatement(selectedText.split('\n'));
+                    const data = parseSelectedText(selectedText);
+                    const inStatement = generateInStatement(data);
                     yield vscode.env.clipboard.writeText(inStatement);
                     vscode.window.showInformationMessage('Copied as IN statement to clipboard!');
                 }
@@ -66,13 +67,29 @@ function processSelection() {
         }
     });
 }
+function parseSelectedText(text) {
+    // Remove the opening 'IN (' and closing ')' if present
+    text = text.replace(/^IN\s*\(\s*'/i, '').replace(/'\s*\)$/, '');
+    // Split the text by newlines and trim each item
+    return text.split('\n')
+        .map(item => item.trim())
+        .filter(item => item !== '');
+}
 function generateInStatement(data) {
     if (data.length === 0) {
         vscode.window.showWarningMessage('No data to generate IN statement.');
         return '';
     }
-    const cleanedData = data.map(item => item.trim()).filter(item => item !== '');
-    const inStatement = `IN (${cleanedData.map(item => `'${item}'`).join(', ')})`;
+    const formattedData = data.map(item => {
+        if (item.toLowerCase() === 'null') {
+            return 'NULL';
+        }
+        else {
+            // Escape single quotes and wrap all values in single quotes
+            return `'${item.replace(/'/g, "''")}'`;
+        }
+    });
+    const inStatement = `IN (${formattedData.join(', ')})`;
     return inStatement;
 }
 function deactivate() { }
