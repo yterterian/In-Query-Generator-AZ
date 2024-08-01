@@ -1,7 +1,7 @@
 {
     "name": "AZDataStudioExtension",
     "displayName": "In-Query Generator",
-    "publisher": "YT_Dev_Team",
+    "publisher": "YakovT",
     "description": "An extension to copy query results as an IN SQL statement by Yakov T",
     "version": "0.0.2",
     "engines": {
