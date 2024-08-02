@@ -3,7 +3,8 @@
     "displayName": "In-Query Statement Generator",
     "publisher": "YakovT",
     "description": "Simplify the process of creating IN clauses for SQL queries in Azure Data Studio. Convert selected data or clipboard content into properly formatted IN statements.",
-    "version": "0.0.7",
+    "version": "0.0.8",
+    "icon": "images/logo-icon.png",
     "engines": {
         "vscode": "^1.50.0"
     },
