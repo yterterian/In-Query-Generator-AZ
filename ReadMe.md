@@ -52,16 +52,21 @@ The extension will generate:
 ```sql
 IN ('1234', '5678', 'ABC123', NULL, 'User''s Name')
 
-Notes
+## Notes
 
-The extension automatically handles string escaping, wrapping strings in single quotes and escaping any existing single quotes within the strings.
-Numeric values are not wrapped in quotes, allowing them to be treated as numbers in your queries.
-NULL values are included in the IN clause without quotes.
-The extension can handle data copied directly from Azure Data Studio's results grid, making it easy to use query results in subsequent queries.
+- The extension automatically handles string escaping, wrapping strings in single quotes and escaping any existing single quotes within the strings.
+- Numeric values are not wrapped in quotes, allowing them to be treated as numbers in your queries.
+- NULL values are included in the IN clause without quotes.
+- The extension can handle data copied directly from Azure Data Studio's results grid, making it easy to use query results in subsequent queries.
 
-Feedback and Contributions
-We welcome your feedback and contributions! If you encounter any issues or have suggestions for improvements, please visit our GitHub repository to submit an issue or pull request.
-License
-This project is licensed under the MIT License - see the LICENSE file for details.
-Author
+## Feedback and Contributions
+
+We welcome your feedback and contributions! If you encounter any issues or have suggestions for improvements, please visit our [GitHub repository](https://github.com/yterterian/In-Query-Generator-AZ) to submit an issue or pull request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
 Created by Yakov T
