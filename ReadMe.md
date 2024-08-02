@@ -51,7 +51,7 @@ The extension will generate:
 
 ```sql
 IN ('1234', '5678', 'ABC123', NULL, 'User''s Name')
-
+```
 ## Notes
 
 - The extension automatically handles string escaping, wrapping strings in single quotes and escaping any existing single quotes within the strings.
