@@ -1,9 +1,9 @@
 {
-    "name": "AZDataStudioExtension",
-    "displayName": "In-Query Generator",
+    "name": "Sql-in-query-statement-generator",
+    "displayName": "In-Query Statement Generator",
     "publisher": "YakovT",
-    "description": "An extension to copy query results as an IN SQL statement by Yakov T",
-    "version": "0.0.4",
+    "description": "Simplify the process of creating IN clauses for SQL queries in Azure Data Studio. Convert selected data or clipboard content into properly formatted IN statements.",
+    "version": "0.0.5",
     "engines": {
         "vscode": "^1.50.0"
     },
@@ -20,7 +20,8 @@
     },
     "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
     "activationEvents": [
-        "onCommand:extension.copyAsInStatement"
+        "onCommand:extension.copyAsInStatement",
+        "onCommand:extension.pasteAsInStatement"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -28,6 +29,10 @@
             {
                 "command": "extension.copyAsInStatement",
                 "title": "Copy as IN Statement"
+            },
+            {
+                "command": "extension.pasteAsInStatement",
+                "title": "Paste as IN Statement"
             }
         ],
         "menus": {
@@ -36,24 +41,40 @@
                     "command": "extension.copyAsInStatement",
                     "when": "editorHasSelection",
                     "group": "9_cutcopypaste"
+                },
+                {
+                    "command": "extension.pasteAsInStatement",
+                    "when": "editorFocus",
+                    "group": "9_cutcopypaste"
                 }
             ]
         }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
-        "compile": "node ./node_modules/typescript/bin/tsc -p ./",
-        "watch": "node ./node_modules/typescript/bin/tsc -w -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install"
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "package": "vsce package",
+        "test": "node ./out/test/runTest.js"
     },
     "devDependencies": {
         "@types/node": "^14.14.6",
         "@types/vscode": "^1.50.0",
-        "typescript": "^4.0.3",
-        "vscode": "^1.1.34"
+        "@vscode/test-electron": "^2.3.0",
+        "@vscode/vsce": "^2.19.0",
+        "glob": "^10.4.5",
+        "typescript": "^4.0.3"
     },
     "dependencies": {
         "azdata": "latest",
-        "minimatch": "^10.0.1"
+        "minimatch": "^10.0.1",
+        "minimist": "^1.2.8",
+        "mkdirp": "^3.0.0",
+        "uuid": "^9.0.0"
+    },
+    "resolutions": {
+        "glob": "^10.2.7",
+        "mkdirp": "^3.0.0",
+        "uuid": "^9.0.0"
     }
 }

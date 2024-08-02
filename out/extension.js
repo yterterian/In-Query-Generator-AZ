@@ -35,10 +35,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
 function activate(context) {
-    let disposable = vscode.commands.registerCommand('extension.copyAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
+    let copyDisposable = vscode.commands.registerCommand('extension.copyAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
         yield processSelection();
     }));
-    context.subscriptions.push(disposable);
+    let pasteDisposable = vscode.commands.registerCommand('extension.pasteAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
+        yield processAndPasteClipboard();
+    }));
+    context.subscriptions.push(copyDisposable, pasteDisposable);
 }
 exports.activate = activate;
 function processSelection() {
@@ -49,7 +52,7 @@ function processSelection() {
                 const selection = editor.selection;
                 const selectedText = editor.document.getText(selection);
                 if (selectedText) {
-                    const data = parseSelectedText(selectedText);
+                    const data = parseText(selectedText);
                     const inStatement = generateInStatement(data);
                     yield vscode.env.clipboard.writeText(inStatement);
                     vscode.window.showInformationMessage('Copied as IN statement to clipboard!');
@@ -67,11 +70,42 @@ function processSelection() {
         }
     });
 }
-function parseSelectedText(text) {
+function processAndPasteClipboard() {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                vscode.window.showWarningMessage('No active text editor.');
+                return;
+            }
+            const clipboardText = yield vscode.env.clipboard.readText();
+            if (clipboardText) {
+                const data = parseText(clipboardText);
+                const inStatement = generateInStatement(data);
+                editor.edit(editBuilder => {
+                    if (editor.selection.isEmpty) {
+                        editBuilder.insert(editor.selection.active, inStatement);
+                    }
+                    else {
+                        editBuilder.replace(editor.selection, inStatement);
+                    }
+                });
+                vscode.window.showInformationMessage('IN statement pasted!');
+            }
+            else {
+                vscode.window.showWarningMessage('Clipboard is empty.');
+            }
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Error processing clipboard: ${error}`);
+        }
+    });
+}
+function parseText(text) {
     // Remove the opening 'IN (' and closing ')' if present
     text = text.replace(/^IN\s*\(\s*'/i, '').replace(/'\s*\)$/, '');
-    // Split the text by newlines and trim each item
-    return text.split('\n')
+    // Split by newlines and/or tabs to handle various formats
+    return text.split(/[\n\t]+/)
         .map(item => item.trim())
         .filter(item => item !== '');
 }
