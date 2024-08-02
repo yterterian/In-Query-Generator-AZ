@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/logo.png" alt="In-Query Generator Logo" width="200"/>
+</p>
+
 # In-Query Generator for Azure Data Studio
 
 ## Description
