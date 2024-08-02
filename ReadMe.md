@@ -65,7 +65,7 @@ We welcome your feedback and contributions! If you encounter any issues or have 
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/yterterian/In-Query-Generator-AZ/blob/9143a521c9dcd64f6fc7f7e685b2bbbf8c7fa834/License) file for details.
 
 ## Author
 
