@@ -3,7 +3,7 @@
     "displayName": "In-Query Statement Generator",
     "publisher": "YakovT",
     "description": "Simplify the process of creating IN clauses for SQL queries in Azure Data Studio. Convert selected data or clipboard content into properly formatted IN statements.",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "icon": "images/logo-icon.png",
     "engines": {
         "vscode": "^1.50.0"
@@ -26,6 +26,16 @@
     ],
     "main": "./out/extension.js",
     "contributes": {
+        "configuration": {
+            "title": "In-Query Statement Generator",
+            "properties": {
+                "inQueryGenerator.splitOnWhitespace": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Split values on whitespace when generating IN statements."
+                }
+            }
+        },
         "commands": [
             {
                 "command": "extension.copyAsInStatement",
@@ -34,6 +44,10 @@
             {
                 "command": "extension.pasteAsInStatement",
                 "title": "Paste as IN Statement"
+            },
+            {
+                "command": "inQueryGenerator.toggleSplitOnWhitespace",
+                "title": "Toggle Split on Whitespace"
             }
         ],
         "menus": {

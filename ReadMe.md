@@ -42,6 +42,14 @@ This extension is particularly useful when working with large datasets or when y
 3. The extension will format the selected text and copy it to your clipboard as a properly formatted IN clause.
 4. You can then paste (Ctrl+V) the IN clause wherever you need it in your query.
 
+## Configuration
+
+This extension contributes the following settings:
+
+* `inQueryGenerator.splitOnWhitespace`: Enable/disable splitting values on whitespace when generating IN statements.
+
+You can toggle this setting using the "Toggle Split on Whitespace" command in the command palette.
+
 ## Examples
 
 If you copy or select the following values:

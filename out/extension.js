@@ -34,6 +34,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
+let statusBarItem;
 function activate(context) {
     let copyDisposable = vscode.commands.registerCommand('extension.copyAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
         yield processSelection();
@@ -41,9 +42,35 @@ function activate(context) {
     let pasteDisposable = vscode.commands.registerCommand('extension.pasteAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
         yield processAndPasteClipboard();
     }));
-    context.subscriptions.push(copyDisposable, pasteDisposable);
+    let toggleSplitCommand = vscode.commands.registerCommand('inQueryGenerator.toggleSplitOnWhitespace', () => {
+        const config = vscode.workspace.getConfiguration('inQueryGenerator');
+        const currentValue = config.get('splitOnWhitespace', false);
+        config.update('splitOnWhitespace', !currentValue, true);
+        updateStatusBarItem();
+        vscode.window.showInformationMessage(`Split on whitespace: ${!currentValue}`);
+    });
+    // Create status bar item
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    context.subscriptions.push(statusBarItem);
+    // Initial update of status bar
+    updateStatusBarItem();
+    // Listen for configuration changes
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('inQueryGenerator.splitOnWhitespace')) {
+            updateStatusBarItem();
+        }
+    }));
+    context.subscriptions.push(copyDisposable, pasteDisposable, toggleSplitCommand);
 }
 exports.activate = activate;
+function updateStatusBarItem() {
+    const config = vscode.workspace.getConfiguration('inQueryGenerator');
+    const splitOnWhitespace = config.get('splitOnWhitespace', false);
+    statusBarItem.text = `IN: ${splitOnWhitespace ? 'Split' : 'No Split'}`;
+    statusBarItem.tooltip = `Click to toggle split on whitespace (currently ${splitOnWhitespace ? 'enabled' : 'disabled'})`;
+    statusBarItem.command = 'inQueryGenerator.toggleSplitOnWhitespace';
+    statusBarItem.show();
+}
 function processSelection() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -104,10 +131,20 @@ function processAndPasteClipboard() {
 function parseText(text) {
     // Remove the opening 'IN (' and closing ')' if present
     text = text.replace(/^IN\s*\(\s*'/i, '').replace(/'\s*\)$/, '');
-    // Split by newlines and/or tabs to handle various formats
-    return text.split(/[\n\t]+/)
-        .map(item => item.trim())
-        .filter(item => item !== '');
+    const config = vscode.workspace.getConfiguration('inQueryGenerator');
+    const splitOnWhitespace = config.get('splitOnWhitespace', false);
+    if (splitOnWhitespace) {
+        // Split by whitespace
+        return text.split(/\s+/)
+            .map(item => item.trim())
+            .filter(item => item !== '');
+    }
+    else {
+        // Split by newlines and/or tabs to handle various formats
+        return text.split(/[\n\t]+/)
+            .map(item => item.trim())
+            .filter(item => item !== '');
+    }
 }
 function generateInStatement(data) {
     if (data.length === 0) {
@@ -126,5 +163,9 @@ function generateInStatement(data) {
     const inStatement = `IN (${formattedData.join(', ')})`;
     return inStatement;
 }
-function deactivate() { }
+function deactivate() {
+    if (statusBarItem) {
+        statusBarItem.dispose();
+    }
+}
 exports.deactivate = deactivate;
