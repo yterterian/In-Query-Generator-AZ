@@ -2,83 +2,194 @@
   <img src="images/logo.png" alt="In-Query Generator Logo" width="200"/>
 </p>
 
-# In-Query Generator for Azure Data Studio
+# Enhanced In-Query Statement Generator for Azure Data Studio & VS Code
 
 ## Description
 
-The In-Query Generator is a powerful extension for Azure Data Studio that simplifies the process of creating IN clauses for SQL queries. It allows you to quickly convert selected data or clipboard content into properly formatted IN statements, saving time and reducing errors in your query writing process.
+The Enhanced In-Query Statement Generator is a powerful extension for Azure Data Studio and VS Code that streamlines the creation of SQL `IN` and `NOT IN` clauses. It supports smart data type detection, batch processing, deduplication, and advanced formatting, making it ideal for working with large datasets and complex queries.
 
-This extension is particularly useful when working with large datasets or when you need to create queries based on multiple values from query results. It handles both numeric and string data types, automatically formatting them correctly for use in SQL IN clauses.
+---
 
-## Features
+## Feature Overview
 
-- Convert selected text to an IN clause directly in the editor
-- Generate IN clauses from clipboard content
-- Automatically handle both numeric and string data types
-- Escape single quotes in string values
-- Support for NULL values in the IN clause
+| Feature                                 | Description                                                                                  |
+|------------------------------------------|----------------------------------------------------------------------------------------------|
+| IN/NOT IN Clause Generation              | Convert selected text or clipboard content into SQL `IN`/`NOT IN` clauses                    |
+| Batch/Table Data Processing              | Select a column from tabular data (with headers) to generate an IN clause                    |
+| Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle)               |
+| Data Type Detection                      | Automatically formats numbers, dates, GUIDs, and more                                        |
+| Deduplication (Distinct)                 | Optionally remove duplicate values (configurable globally and per-use)                       |
+| Custom Formatting                        | One value per line, max values per line, indentation, and more                               |
+| Status Bar Customization                 | Quick access to extension features via a configurable status bar dropdown                    |
+| Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed                      |
+| Keyboard Shortcuts                       | Fast access to core features                                                                 |
+| Error Handling & Guidance                | User-friendly messages and tips for best results                                             |
+
+---
 
 ## Installation
 
-1. Open Azure Data Studio
+1. Open Azure Data Studio or VS Code
 2. Go to the Extensions view (Ctrl+Shift+X)
-3. Search for "In-Query Generator"
+3. Search for "Enhanced In-Query Statement Generator"
 4. Click Install
+
+---
 
 ## How to Use
 
-### Method 1: Copy and Paste as IN Statement
+### 1. **Paste as IN Statement**
+- Copy values from a table, spreadsheet, or any source.
+- In your SQL editor, right-click and select **Paste IN Statement** (or use Ctrl+Shift+V).
+- The extension formats and inserts the values as an SQL IN clause.
 
-1. In the query results grid, select the cells containing the values you want to use in your IN clause.
-2. Copy the selected cells to your clipboard (Ctrl+C or right-click > Copy).
-3. In your SQL editor, place your cursor where you want to insert the IN clause.
-4. Right-click to open the context menu and select "Paste as IN Statement".
-5. The extension will format the clipboard content and paste it as a properly formatted IN clause.
+### 2. **Copy as IN Statement**
+- Select values in your editor.
+- Right-click and select **Copy as IN Statement** (or use Ctrl+Shift+I).
+- Preview the generated IN clause and choose to copy or insert it.
 
-### Method 2: Generate IN Statement from Selected Text
+### 3. **Paste Special In Statement**
+- Right-click and select **Paste Special In Statement** for advanced options:
+  - **Paste IN Statement**: Standard IN clause.
+  - **Paste NOT IN Statement**: Standard NOT IN clause.
+  - **Paste Column + IN Statement**: Select a column from tabular data (with headers).
+  - **Paste Column + NOT IN Statement**: Same as above, but for NOT IN.
+- You will be prompted to choose whether to remove duplicates (distinct) for this operation.
 
-1. In your SQL editor, select the text containing the values you want to use in your IN clause.
-2. Right-click to open the context menu and select "Copy as IN Statement".
-3. The extension will format the selected text and copy it to your clipboard as a properly formatted IN clause.
-4. You can then paste (Ctrl+V) the IN clause wherever you need it in your query.
+### 4. **Process Table Data as IN Statement**
+- Select tabular data (with headers) in your editor.
+- Right-click and select **Process Table Data as IN Statement** (or use Ctrl+Shift+B).
+- Select the column for the IN clause and optionally specify a column name.
+
+---
+
+## Deduplication (Distinct Values)
+
+- **Global Setting:**  
+  - `inQueryGenerator.distinctValues` (default: true): Remove duplicate values before generating statements.
+  - `inQueryGenerator.distinctCaseSensitive`: Treat values as distinct if their case differs.
+  - `inQueryGenerator.distinctTrimWhitespace`: Ignore leading/trailing whitespace when deduplicating.
+
+- **Per-Use Override:**  
+  - When using **Paste Special In Statement**, you can choose to remove duplicates or keep all values for that operation.
+
+- **Feedback:**  
+  - The extension displays a message indicating how many duplicates were removed.
+
+---
+
+## Status Bar Customization
+
+- The status bar provides quick access to extension features.
+- You can configure which actions appear via `inQueryGenerator.statusBarActions` (e.g., show a dropdown or pin a specific command).
+
+---
 
 ## Configuration
 
 This extension contributes the following settings:
 
-* `inQueryGenerator.splitOnWhitespace`: Enable/disable splitting values on whitespace when generating IN statements.
+* `inQueryGenerator.splitOnWhitespace`: Split values on whitespace when generating IN statements.
+* `inQueryGenerator.useNotIn`: Generate NOT IN statements instead of IN statements.
+* `inQueryGenerator.defaultColumnName`: Default column name to use in the IN clause.
+* `inQueryGenerator.detectDataTypes`: Automatically detect and format dates, GUIDs, and numeric values.
+* `inQueryGenerator.alwaysShowPreview`: Always show a preview of the generated IN statement before inserting or copying.
+* `inQueryGenerator.formatOptions`: Formatting options for IN statements:
+  * `oneValuePerLine`: Put each value on a separate line.
+  * `maxValuesPerLine`: Maximum number of values per line when not using oneValuePerLine.
+  * `indentSize`: Number of spaces to use for indentation in multi-line format.
+* `inQueryGenerator.statusBarActions`: List of actions to show in the status bar (dropdown or pinned commands).
+* `inQueryGenerator.distinctValues`: Remove duplicate values before generating statements.
+* `inQueryGenerator.distinctCaseSensitive`: Case sensitivity for deduplication.
+* `inQueryGenerator.distinctTrimWhitespace`: Ignore whitespace when deduplicating.
 
-You can toggle this setting using the "Toggle Split on Whitespace" command in the command palette.
+---
+
+## Keyboard Shortcuts
+
+* Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement
+* Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement
+* Ctrl+Shift+B (Cmd+Shift+B): Process selected table data as IN statement
+
+---
 
 ## Examples
 
-If you copy or select the following values:
-1234
-5678
-ABC123
-NULL
-User's Name
+### Basic Example
 
-The extension will generate:
-
-```sql
-IN ('1234', '5678', 'ABC123', NULL, 'User''s Name')
+**Input:**
 ```
-## Notes
+123
+456
+789
+```
+**Output:**
+```
+IN (123, 456, 789)
+```
 
-- The extension automatically handles string escaping, wrapping strings in single quotes and escaping any existing single quotes within the strings.
-- Numeric values are not wrapped in quotes, allowing them to be treated as numbers in your queries.
-- NULL values are included in the IN clause without quotes.
-- The extension can handle data copied directly from Azure Data Studio's results grid, making it easy to use query results in subsequent queries.
+### Example with Duplicates
 
-## Feedback and Contributions
+**Input:**
+```
+A
+B
+A
+C
+B
+```
+**Output (Distinct ON):**
+```
+IN ('A', 'B', 'C')
+```
+*Message: "2 duplicates removed."*
 
-We welcome your feedback and contributions! If you encounter any issues or have suggestions for improvements, please visit our [GitHub repository](https://github.com/yterterian/In-Query-Generator-AZ) to submit an issue or pull request.
+**Output (Distinct OFF):**
+```
+IN ('A', 'B', 'A', 'C', 'B')
+```
 
-## License
+### Column-Based Example
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/yterterian/In-Query-Generator-AZ/blob/9143a521c9dcd64f6fc7f7e685b2bbbf8c7fa834/License) file for details.
+**Input (copied with header):**
+```
+Asset_Number
+1336
+138804
+8869
+```
+- Use **Paste Column + IN Statement** and select "Asset_Number".
+- **Output:**
+```
+Asset_Number IN (1336, 138804, 8869)
+```
 
-## Author
+---
 
-Created by Yakov T
+## Best Practices & Tips
+
+- **Copy with headers** for best results when using column-based features.
+- Use the **Paste Special In Statement** for advanced options and deduplication control.
+- Adjust configuration settings to match your workflow and data conventions.
+- The extension provides feedback on duplicates removed and errors encountered.
+
+---
+
+## Troubleshooting
+
+- If you see "Clipboard data does not appear to be tabular with headers," ensure you copied both the header and data rows.
+- For large datasets, the extension will warn you if processing may take time.
+- If you encounter issues, check your configuration settings and review the feedback messages.
+
+---
+
+## Documentation & Support
+
+- All features and configuration options are documented in this ReadMe and in the extension's settings UI.
+- For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/AZDataStudioExtension/issues).
+
+---
+
+## Changelog
+
+See the [GitHub Releases](https://github.com/yterterian/AZDataStudioExtension/releases) for version history and updates.

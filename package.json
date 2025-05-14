@@ -1,96 +1,249 @@
 {
-    "name": "Sql-in-query-statement-generator",
-    "displayName": "In-Query Statement Generator",
-    "publisher": "YakovT",
-    "description": "Simplify the process of creating IN clauses for SQL queries in Azure Data Studio. Convert selected data or clipboard content into properly formatted IN statements.",
-    "version": "0.0.9",
-    "icon": "images/logo-icon.png",
-    "engines": {
-        "vscode": "^1.50.0"
-    },
-    "categories": [
-        "Other"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/yterterian/AZDataStudioExtension.git"
-    },
-    "license": "MIT",
-    "bugs": {
-        "url": "https://github.com/yterterian/AZDataStudioExtension/issues"
-    },
-    "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
-    "activationEvents": [
-        "onCommand:extension.copyAsInStatement",
-        "onCommand:extension.pasteAsInStatement"
-    ],
-    "main": "./out/extension.js",
-    "contributes": {
-        "configuration": {
-            "title": "In-Query Statement Generator",
-            "properties": {
-                "inQueryGenerator.splitOnWhitespace": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Split values on whitespace when generating IN statements."
-                }
-            }
+  "name": "sql-in-query-statement-generator",
+  "displayName": "Enhanced In-Query Statement Generator",
+  "publisher": "YakovT",
+  "description": "Comprehensive tool for creating SQL IN clauses in Azure Data Studio with smart data type detection, formatting options, and batch processing.",
+  "version": "0.0.11",
+  "icon": "images/logo-icon.png",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Other",
+    "Formatters",
+    "Snippets"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yterterian/AZDataStudioExtension.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yterterian/AZDataStudioExtension/issues"
+  },
+  "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
+  "activationEvents": [
+    "onCommand:extension.copyAsInStatement",
+    "onCommand:extension.pasteAsInStatementDirect",
+    "onCommand:extension.pasteAsNotInStatementDirect",
+    "onCommand:extension.pasteSpecialInStatement",
+    "onCommand:extension.pasteColumnInStatement",
+    "onCommand:extension.pasteColumnNotInStatement",
+    "onCommand:extension.batchProcessInStatement",
+    "onCommand:inQueryGenerator.toggleSplitOnWhitespace",
+    "onCommand:inQueryGenerator.toggleNotIn"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Enhanced In-Query Statement Generator",
+      "properties": {
+        "inQueryGenerator.splitOnWhitespace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Split values on whitespace when generating IN statements."
         },
-        "commands": [
-            {
-                "command": "extension.copyAsInStatement",
-                "title": "Copy as IN Statement"
+        "inQueryGenerator.useNotIn": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate NOT IN statements instead of IN statements."
+        },
+        "inQueryGenerator.defaultColumnName": {
+          "type": "string",
+          "default": "",
+          "description": "Default column name to use in the IN clause."
+        },
+        "inQueryGenerator.detectDataTypes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect and format dates, GUIDs, and numeric values."
+        },
+        "inQueryGenerator.alwaysShowPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always show a preview of the generated IN statement before inserting or copying."
+        },
+        "inQueryGenerator.formatOptions": {
+          "type": "object",
+          "default": {
+            "oneValuePerLine": false,
+            "maxValuesPerLine": 5,
+            "indentSize": 4
+          },
+          "description": "Formatting options for IN statements.",
+          "properties": {
+            "oneValuePerLine": {
+              "type": "boolean",
+              "default": false,
+              "description": "Put each value on a separate line."
             },
-            {
-                "command": "extension.pasteAsInStatement",
-                "title": "Paste as IN Statement"
+            "maxValuesPerLine": {
+              "type": "number",
+              "default": 5,
+              "description": "Maximum number of values per line when not using oneValuePerLine."
             },
-            {
-                "command": "inQueryGenerator.toggleSplitOnWhitespace",
-                "title": "Toggle Split on Whitespace"
+            "indentSize": {
+              "type": "number",
+              "default": 4,
+              "description": "Number of spaces to use for indentation in multi-line format."
             }
-        ],
-        "menus": {
-            "editor/context": [
-                {
-                    "command": "extension.copyAsInStatement",
-                    "when": "editorHasSelection",
-                    "group": "9_cutcopypaste"
-                },
-                {
-                    "command": "extension.pasteAsInStatement",
-                    "when": "editorFocus",
-                    "group": "9_cutcopypaste"
-                }
-            ]
+          }
+        },
+        "inQueryGenerator.statusBarActions": {
+          "type": "array",
+          "default": ["dropdown"],
+          "description": "List of actions to show in the status bar. Use 'dropdown' for a multi-action dropdown, or specify command IDs (e.g., 'extension.copyAsInStatement', 'extension.pasteAsInStatementDirect') for pinned actions."
+        },
+        "inQueryGenerator.distinctValues": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove duplicate values before generating IN/NOT IN statements. Can be overridden per use in the command panel."
+        },
+        "inQueryGenerator.distinctCaseSensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "When deduplicating, treat values as distinct if their case differs (e.g., 'A' vs 'a')."
+        },
+        "inQueryGenerator.distinctTrimWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "When deduplicating, ignore leading/trailing whitespace differences."
         }
+      }
     },
-    "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "package": "vsce package",
-        "test": "node ./out/test/runTest.js"
+    "commands": [
+      {
+        "command": "extension.copyAsInStatement",
+        "title": "Copy as IN Statement"
+      },
+      {
+        "command": "extension.pasteAsInStatementDirect",
+        "title": "Paste IN Statement"
+      },
+      {
+        "command": "extension.pasteAsNotInStatementDirect",
+        "title": "Paste NOT IN Statement"
+      },
+      {
+        "command": "extension.pasteSpecialInStatement",
+        "title": "Paste Special In Statement"
+      },
+      {
+        "command": "extension.pasteColumnInStatement",
+        "title": "Paste Column + IN Statement (use Copy with Header to select data)"
+      },
+      {
+        "command": "extension.pasteColumnNotInStatement",
+        "title": "Paste Column + NOT IN Statement (use Copy with Header to select data)"
+      },
+      {
+        "command": "extension.batchProcessInStatement",
+        "title": "Process Table Data as IN Statement"
+      },
+      {
+        "command": "inQueryGenerator.toggleSplitOnWhitespace",
+        "title": "Toggle Split on Whitespace"
+      },
+      {
+        "command": "inQueryGenerator.toggleNotIn",
+        "title": "Toggle NOT IN Clause"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "extension.copyAsInStatement",
+          "when": "editorHasSelection",
+          "group": "9_cutcopypaste"
+        },
+        {
+          "command": "extension.pasteAsInStatementDirect",
+          "when": "editorFocus",
+          "group": "9_cutcopypaste"
+        },
+        {
+          "command": "extension.pasteSpecialInStatement",
+          "when": "editorFocus",
+          "group": "9_cutcopypaste"
+        }
+      ]
     },
-    "devDependencies": {
-        "@types/node": "^14.14.6",
-        "@types/vscode": "^1.50.0",
-        "@vscode/test-electron": "^2.3.0",
-        "@vscode/vsce": "^2.31.1",
-        "glob": "^10.4.5",
-        "typescript": "^4.0.3"
-    },
-    "dependencies": {
-        "azdata": "^1.0.0",
-        "minimatch": "^10.0.1",
-        "minimist": "^1.2.8",
-        "mkdirp": "^3.0.1",
-        "uuid": "^9.0.0"
-    },
-    "resolutions": {
-        "minimist": "^1.2.8",
-        "glob": "^10.4.5",
-        "mkdirp": "^3.0.0",
-        "uuid": "^9.0.0"
-    }
+    "keybindings": [
+      {
+        "command": "extension.copyAsInStatement",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "extension.pasteAsInStatement",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorFocus"
+      },
+      {
+        "command": "extension.batchProcessInStatement",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "editorHasSelection"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "test": "node ./out/test/runTest.js",
+    "coverage": "node ./simple-coverage.js",
+    "pretest": "npm run compile"
+  },
+  "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^14.14.6",
+    "@types/vscode": "^1.50.0",
+    "@vscode/test-electron": "^2.3.0",
+    "@vscode/vsce": "^2.31.1",
+    "cross-env": "^7.0.3",
+    "glob": "^10.4.5",
+    "istanbul-lib-coverage": "^3.2.2",
+    "mocha": "^10.2.0",
+    "nyc": "^15.1.0",
+    "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.2",
+    "typescript": "^4.0.3"
+  },
+  "dependencies": {
+    "azdata": "^1.0.0",
+    "minimatch": "^10.0.1",
+    "minimist": "^1.2.8",
+    "mkdirp": "^3.0.1",
+  "uuid": "^9.0.0"
+},
+  "overrides": {
+    "minimist": "^1.2.8",
+    "request": "^2.88.2",
+    "diff": "^3.5.0",
+    "tough-cookie": "^4.1.3"
+  },
+  "nyc": {
+    "extends": "@istanbuljs/nyc-config-typescript",
+    "all": true,
+    "include": [
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/test/**/*.ts"
+    ],
+    "reporter": [
+      "text",
+      "html",
+      "lcov"
+    ],
+    "sourceMap": true,
+    "instrument": true,
+    "hookRequire": true,
+    "produceSourceMap": true
+  }
 }
