@@ -5,6 +5,8 @@
         "outDir": "./out",
         "rootDir": "./src",
         "strict": true,
+        "sourceMap": true,       // Make sure this is true
+        "inlineSources": true,   // Make sure this is true
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
@@ -13,6 +15,9 @@
             "./node_modules/@types"
         ]
     },
+    "include": [
+        "src/**/*"
+    ],
     "exclude": [
         "node_modules",
         ".vscode-test"
