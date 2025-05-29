@@ -120,6 +120,10 @@
         "title": "Copy as IN Statement"
       },
       {
+        "command": "extension.pasteAsInStatement",
+        "title": "Paste as IN Statement"
+      },
+      {
         "command": "extension.pasteAsInStatementDirect",
         "title": "Paste IN Statement"
       },
@@ -212,18 +216,25 @@
     "coverage": "c8 --reporter=html --reporter=text npm test",
     "test:pure": "mocha -r ts-node/register src/test/suite/pure.test.ts",
     "coverage:pure": "c8 --reporter=html --reporter=text npm run test:pure",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
     "pretest": "npm run compile"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^14.14.6",
     "@types/vscode": "^1.50.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.0",
+    "@typescript-eslint/parser": "^8.33.0",
     "@vscode/test-electron": "^2.3.0",
     "@vscode/vsce": "^2.32.0",
     "c8": "^10.1.3",
     "cross-env": "^7.0.3",
+    "eslint": "^9.27.0",
     "glob": "^10.4.5",
+    "husky": "^9.1.7",
     "istanbul-lib-coverage": "^3.2.2",
+    "lint-staged": "^15.5.2",
     "mocha": "^10.2.0",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
@@ -238,6 +249,12 @@
     "minimist": "^1.2.8",
     "mkdirp": "^3.0.1",
     "uuid": "^9.0.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "git add"
+    ]
   },
   "overrides": {
     "minimist": "^1.2.8",

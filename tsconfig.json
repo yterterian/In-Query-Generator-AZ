@@ -13,7 +13,8 @@
         "typeRoots": [
             "./typings",
             "./node_modules/@types"
-        ]
+        ],
+        "lib": ["es2019"]
     },
     "include": [
         "src/**/*"

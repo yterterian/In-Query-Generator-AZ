@@ -223,16 +223,14 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
         if (context) {
             await trackUsageAndPromptRating(context);
         }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error processing clipboard: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+        vscode.window.showErrorMessage('Error processing clipboard.');
     }
 }
 
 // Paste Special dropdown
 async function showPasteSpecialDropdown() {
     // Ask for distinct option
-    const config = vscode.workspace.getConfiguration('inQueryGenerator');
-    const defaultDistinct = config.get<boolean>('distinctValues', true);
     const distinctChoice = await vscode.window.showQuickPick(
         [
             { label: 'Distinct values (remove duplicates)', value: true },
@@ -346,8 +344,8 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             }
             vscode.window.showInformationMessage(msg);
         }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error processing column paste: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+        vscode.window.showErrorMessage('Error processing column paste.');
     }
 }
 
@@ -398,71 +396,11 @@ async function processSelection(context: vscode.ExtensionContext) {
         } else {
             vscode.window.showWarningMessage('No active text editor.');
         }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error processing selection: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+        vscode.window.showErrorMessage('Error processing selection.');
     }
 }
 
-async function processAndPasteClipboard(context: vscode.ExtensionContext) {
-    try {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showWarningMessage('No active text editor.');
-            return;
-        }
-
-        const clipboardText = await vscode.env.clipboard.readText();
-        if (clipboardText) {
-            if (clipboardText.length > 100000) {
-                vscode.window.showWarningMessage('Processing a large amount of data. This might take a moment.');
-            }
-            const { hasHeaders, data } = detectTableData(clipboardText);
-            if (hasHeaders && data.length > 1) {
-                const choice = await vscode.window.showQuickPick(
-                    ['Process as single list', 'Process as table (select column)'],
-                    { placeHolder: 'Detected table data in clipboard. How would you like to process it?' }
-                );
-                if (choice === 'Process as table (select column)') {
-                    await processBatchDataFromArray(data);
-                    return;
-                }
-            }
-            let parsedData = parseText(clipboardText);
-            if (parsedData.length === 0) {
-                vscode.window.showWarningMessage('No valid data found in clipboard.');
-                return;
-            }
-            // Deduplication (global config only)
-            const config = vscode.workspace.getConfiguration('inQueryGenerator');
-            const useDistinct = config.get<boolean>('distinctValues', true);
-            const caseSensitive = config.get<boolean>('distinctCaseSensitive', false);
-            const trimWhitespace = config.get<boolean>('distinctTrimWhitespace', true);
-
-            let removed = 0;
-            if (useDistinct) {
-                const dedup = deduplicateValues(parsedData, caseSensitive, trimWhitespace);
-                removed = dedup.removed;
-                parsedData = dedup.unique;
-            }
-
-            const inStatement = generateInStatement(parsedData);
-            await previewAndApplyInStatement(inStatement, editor, false);
-            if (useDistinct) {
-                vscode.window.showInformationMessage(`Clipboard: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
-            }
-            // Enhanced success message with value proposition
-            const itemCount = parsedData.length;
-            vscode.window.showInformationMessage(
-                `✅ Pasted ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement!`
-            );
-            await trackUsageAndPromptRating(context);
-        } else {
-            vscode.window.showWarningMessage('Clipboard is empty.');
-        }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error processing clipboard: ${error instanceof Error ? error.message : String(error)}`);
-    }
-}
 
 async function processBatchData() {
     try {
@@ -488,8 +426,8 @@ async function processBatchData() {
         }
 
         await processBatchDataFromArray(data);
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error processing batch data: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+        vscode.window.showErrorMessage('Error processing selection.');
     }
 }
 
@@ -649,8 +587,8 @@ export function parseText(text: string): string[] {
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
         const splitOnWhitespace = config.get<boolean>('splitOnWhitespace', false);
         return pureParseText(text, splitOnWhitespace);
-    } catch (error) {
-        vscode.window.showErrorMessage(`Failed to parse input: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+        vscode.window.showErrorMessage('Failed to parse input.');
         return [];
     }
 }
@@ -740,7 +678,7 @@ async function showRatingPrompt(context: vscode.ExtensionContext) {
             try {
                 await vscode.env.openExternal(vscode.Uri.parse(marketplaceUrl));
                 vscode.window.showInformationMessage('Thank you for taking the time to rate our extension! 🙏');
-            } catch (error) {
+            } catch {
                 // Fallback: copy URL to clipboard if opening fails
                 await vscode.env.clipboard.writeText(marketplaceUrl);
                 vscode.window.showInformationMessage('Rating URL copied to clipboard - paste it in your browser to rate! 📋');

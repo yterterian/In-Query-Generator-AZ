@@ -1,41 +1,40 @@
 /// <reference types="mocha" />
 /// <reference types="node" />
-/// <reference types="vscode" />
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 // Fix the import path - for the test file in src/test/suite
 import { parseText, generateInStatement, formatValue } from '../../extension';
 
-suite('In-Query Generator Extension Tests', () => {
+describe('In-Query Generator Extension Tests', () => {
     // Ensure the extension is activated before running tests
-    suiteSetup(async () => {
+    before(async () => {
         // Activate the extension
         await vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.activate();
     });
 
-    test('Parse Text - Newline Separated', () => {
+    it('Parse Text - Newline Separated', () => {
         const input = 'value1\nvalue2\nvalue3';
         const expected = ['value1', 'value2', 'value3'];
         const result = parseText(input);
         assert.deepStrictEqual(result, expected);
     });
 
-    test('Parse Text - Tab Separated', () => {
+    it('Parse Text - Tab Separated', () => {
         const input = 'value1\tvalue2\tvalue3';
         const expected = ['value1', 'value2', 'value3'];
         const result = parseText(input);
         assert.deepStrictEqual(result, expected);
     });
 
-    test('Parse Text - Mixed Separators', () => {
+    it('Parse Text - Mixed Separators', () => {
         const input = 'value1\nvalue2\tvalue3\rvalue4';
         const expected = ['value1', 'value2', 'value3', 'value4'];
         const result = parseText(input);
         assert.deepStrictEqual(result, expected);
     });
 
-    test('Parse Text - With Empty Lines', () => {
+    it('Parse Text - With Empty Lines', () => {
         const input = 'value1\n\nvalue2\n\n\nvalue3';
         const expected = ['value1', 'value2', 'value3'];
         const result = parseText(input);
@@ -43,14 +42,14 @@ suite('In-Query Generator Extension Tests', () => {
     });
 
     // Edge case tests - pulled out from nested position
-    test('Parse Text - Empty Input', () => {
+    it('Parse Text - Empty Input', () => {
         const input = '';
         const expected: string[] = [];
         const result = parseText(input);
         assert.deepStrictEqual(result, expected);
     });
     
-    test('Parse Text - Very Long Input', () => {
+    it('Parse Text - Very Long Input', () => {
         // Generate a long string with 1000 values
         const values = Array.from({ length: 1000 }, (_, i) => `value${i}`);
         const input = values.join('\n');
@@ -60,7 +59,7 @@ suite('In-Query Generator Extension Tests', () => {
         assert.strictEqual(result[999], 'value999');
     });
     
-    test('Parse Text - Special Characters', () => {
+    it('Parse Text - Special Characters', () => {
         // Define mockConfig within the test scope
         const mockConfig = {
             splitOnWhitespace: false
@@ -83,7 +82,7 @@ suite('In-Query Generator Extension Tests', () => {
                     update: function() { return Promise.resolve(); },
                     has: function() { return false; },
                     inspect: function() { return undefined; }
-                } as any;
+                } as unknown as vscode.WorkspaceConfiguration;
             }
             return originalGetConfiguration(section);
         };
@@ -99,13 +98,13 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
     
-    test('Generate IN Statement - Empty Array', () => {
+    it('Generate IN Statement - Empty Array', () => {
         const input: string[] = [];
         const result = generateInStatement(input);
         assert.strictEqual(result, '');
     });
     
-    test('Generate IN Statement - Very Large Dataset', () => {
+    it('Generate IN Statement - Very Large Dataset', () => {
         // Generate a large array with 1000 values
         const values = Array.from({ length: 1000 }, (_, i) => `value${i}`);
         const result = generateInStatement(values);
@@ -116,13 +115,13 @@ suite('In-Query Generator Extension Tests', () => {
         assert.ok(result.includes('value999'));
     });
     
-    test('Format Value - Various Data Types', () => {
+    it('Format Value - Various Data Types', () => {
         // Set up the mock configuration
         const originalGetConfiguration = vscode.workspace.getConfiguration;
         vscode.workspace.getConfiguration = () => {
             return {
                 get: <T>() => true as T
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
     
         try {
@@ -140,7 +139,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate IN Statement - Regular Values', () => {
+    it('Generate IN Statement - Regular Values', () => {
         // Mock the configuration for this test
         const mockConfig = {
             useNotIn: false,
@@ -166,7 +165,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -180,7 +179,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate IN Statement - With Single Quotes', () => {
+    it('Generate IN Statement - With Single Quotes', () => {
         // Mock the configuration
         const mockConfig = {
             useNotIn: false,
@@ -206,7 +205,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -220,7 +219,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate IN Statement - With Column Name', () => {
+    it('Generate IN Statement - With Column Name', () => {
         // Mock the configuration
         const mockConfig = {
             useNotIn: false,
@@ -246,7 +245,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -261,7 +260,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate NOT IN Statement', () => {
+    it('Generate NOT IN Statement', () => {
         // Mock the configuration
         const mockConfig = {
             useNotIn: true,
@@ -287,7 +286,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -301,7 +300,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate IN Statement - With Data Type Detection', () => {
+    it('Generate IN Statement - With Data Type Detection', () => {
         // Mock the configuration
         const mockConfig = {
             useNotIn: false,
@@ -327,7 +326,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -341,7 +340,7 @@ suite('In-Query Generator Extension Tests', () => {
         }
     });
 
-    test('Generate IN Statement - One Value Per Line', () => {
+    it('Generate IN Statement - One Value Per Line', () => {
         // Mock the configuration
         const mockConfig = {
             useNotIn: false,
@@ -367,7 +366,7 @@ suite('In-Query Generator Extension Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {

@@ -1,13 +1,12 @@
 // File: src/test/suite/index.ts
 import * as path from 'path';
-// Import using require for Mocha
-const Mocha = require('mocha');
+import Mocha from 'mocha';
 import { glob } from 'glob';
 
 export function run(): Promise<void> {
     // Create the mocha test
     const mocha = new Mocha({
-        ui: 'tdd',
+        ui: 'bdd',
         color: true,
         timeout: 30000 // Longer timeout for UI tests
     });
@@ -41,7 +40,7 @@ export function run(): Promise<void> {
                     reject(err);
                 }
             })
-            .catch((err: any) => {
+            .catch((err: unknown) => {
                 console.error('Error finding test files:', err);
                 reject(err);
             });

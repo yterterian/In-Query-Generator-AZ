@@ -1,13 +1,12 @@
 /// <reference types="mocha" />
 /// <reference types="node" />
-/// <reference types="vscode" />
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { parseText, generateInStatement } from '../../extension';
 
-suite('Configuration Tests', () => {
-    test('Split on Whitespace Option', () => {
+describe('Configuration Tests', () => {
+    it('Split on Whitespace Option', () => {
         // Mock configuration with splitOnWhitespace enabled
         const mockConfig = {
             splitOnWhitespace: true,
@@ -35,7 +34,7 @@ suite('Configuration Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -49,7 +48,7 @@ suite('Configuration Tests', () => {
         }
     });
 
-    test('Detect Data Types Option Disabled', () => {
+    it('Detect Data Types Option Disabled', () => {
         // Mock configuration with detectDataTypes disabled
         const mockConfig = {
             splitOnWhitespace: false,
@@ -77,7 +76,7 @@ suite('Configuration Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -91,7 +90,7 @@ suite('Configuration Tests', () => {
         }
     });
 
-    test('Format Option - One Value Per Line', () => {
+    it('Format Option - One Value Per Line', () => {
         // Mock configuration with oneValuePerLine enabled
         const mockConfig = {
             splitOnWhitespace: false,
@@ -119,7 +118,7 @@ suite('Configuration Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {
@@ -132,7 +131,7 @@ suite('Configuration Tests', () => {
         }
     });
 
-    test('Format Option - Max Values Per Line', () => {
+    it('Format Option - Max Values Per Line', () => {
         // Mock configuration with maxValuesPerLine set to 2
         const mockConfig = {
             splitOnWhitespace: false,
@@ -160,7 +159,7 @@ suite('Configuration Tests', () => {
                         default: return defaultValue as T;
                     }
                 }
-            } as any;
+            } as unknown as vscode.WorkspaceConfiguration;
         };
 
         try {

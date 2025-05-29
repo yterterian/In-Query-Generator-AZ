@@ -1,13 +1,12 @@
 /// <reference types="mocha" />
 /// <reference types="node" />
-/// <reference types="vscode" />
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
-suite('UI Integration Tests', () => {
+describe('UI Integration Tests', () => {
     // Ensure the extension is activated before running tests
-    suiteSetup(async () => {
+    before(async () => {
         // Activate the extension
         await vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.activate();
     });
@@ -15,22 +14,22 @@ suite('UI Integration Tests', () => {
     // Add a small delay to give the UI time to update
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    test('Command copyAsInStatement exists', async () => {
+    it('Command copyAsInStatement exists', async () => {
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('extension.copyAsInStatement'));
     });
 
-    test('Command pasteAsInStatement exists', async () => {
+    it('Command pasteAsInStatement exists', async () => {
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('extension.pasteAsInStatement'));
     });
 
-    test('Command batchProcessInStatement exists', async () => {
+    it('Command batchProcessInStatement exists', async () => {
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('extension.batchProcessInStatement'));
     });
 
-    test('Status bar item is visible', async () => {
+    it('Status bar item is visible', async () => {
         // Wait for extension to fully activate and status bar item to be created
         await delay(500);
         // This test is limited since we can't easily access the status bar item directly
@@ -38,7 +37,7 @@ suite('UI Integration Tests', () => {
         assert.ok(true, 'Test passed if no errors occurred');
     });
 
-    test('End-to-end command execution', async function() {
+    it('End-to-end command execution', async function() {
         // Increase timeout for this test
         this.timeout(30000); // Increase from 10000ms to 30000ms
         
