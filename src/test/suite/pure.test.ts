@@ -264,4 +264,25 @@ describe('Pure Function Unit Tests', () => {
             assert.ok(stmt.includes("'550e8400-e29b-41d4-a716-446655440000'"));
         });
     });
+
+    // --- Additional edge cases for pure functions ---
+    describe('parseText - more edge cases', () => {
+        it('handles SQL injection attempts', () => {
+            const input = "'; DROP TABLE users; --";
+            const result = parseText(input, false);
+            assert.deepStrictEqual(result, ["'; DROP TABLE users; --"]);
+        });
+
+        it('handles extremely long strings', () => {
+            const longString = 'x'.repeat(100000);
+            const result = parseText(longString, false);
+            assert.deepStrictEqual(result, [longString]);
+        });
+
+        it('handles all common separators', () => {
+            const input = 'a\nb\tc\rd\n\re';
+            const result = parseText(input, false);
+            assert.deepStrictEqual(result, ['a', 'b', 'c', 'd', 'e']);
+        });
+    });
 });
