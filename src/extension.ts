@@ -1,21 +1,34 @@
 import * as vscode from 'vscode';
 
 let statusBarItem: vscode.StatusBarItem;
+let usageCounter = 0;
+const RATING_THRESHOLDS = [10, 50, 150, 250]; // Custom backoff intervals
+const RATING_PROMPT_KEY = 'inQueryGenerator.ratingPromptShown';
+const RATING_DISMISSED_KEY = 'inQueryGenerator.ratingDismissed';
+const RATING_BACKOFF_KEY = 'inQueryGenerator.ratingBackoffCount';
 
 export function activate(context: vscode.ExtensionContext) {
+    // Load usage counter from storage
+    usageCounter = context.globalState.get('inQueryGenerator.usageCounter', 0);
+
     // Register commands
     let copyDisposable = vscode.commands.registerCommand('extension.copyAsInStatement', async () => {
-        await processSelection();
+        await processSelection(context);
     });
 
     // Direct paste as IN
     let pasteInDisposable = vscode.commands.registerCommand('extension.pasteAsInStatementDirect', async () => {
-        await processAndPasteClipboardDirect(false, undefined);
+        await processAndPasteClipboardDirect(false, undefined, context);
+    });
+
+    // Paste as IN Statement (for keybinding/alias)
+    let pasteAsInStatementDisposable = vscode.commands.registerCommand('extension.pasteAsInStatement', async () => {
+        await processAndPasteClipboardDirect(false, undefined, context);
     });
 
     // Direct paste as NOT IN
     let pasteNotInDisposable = vscode.commands.registerCommand('extension.pasteAsNotInStatementDirect', async () => {
-        await processAndPasteClipboardDirect(true, undefined);
+        await processAndPasteClipboardDirect(true, undefined, context);
     });
 
     // Paste Special (dropdown)
@@ -70,6 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         copyDisposable,
         pasteInDisposable,
+        pasteAsInStatementDisposable,
         pasteNotInDisposable,
         pasteSpecialDisposable,
         pasteColumnInDisposable,
@@ -159,7 +173,7 @@ function deduplicateValues(
 }
 
 // Direct paste as IN/NOT IN
-async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverride: boolean | undefined) {
+async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverride: boolean | undefined, context: vscode.ExtensionContext) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -205,6 +219,10 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
         }
         vscode.window.showInformationMessage(msg);
+        // Track usage for rating prompt
+        if (context) {
+            await trackUsageAndPromptRating(context);
+        }
     } catch (error) {
         vscode.window.showErrorMessage(`Error processing clipboard: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -242,10 +260,10 @@ async function showPasteSpecialDropdown() {
         // Pass distinctOverride to the command
         switch (selected.command) {
             case 'extension.pasteAsInStatementDirect':
-                await processAndPasteClipboardDirect(false, distinctOverride);
+                await processAndPasteClipboardDirect(false, distinctOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
                 break;
             case 'extension.pasteAsNotInStatementDirect':
-                await processAndPasteClipboardDirect(true, distinctOverride);
+                await processAndPasteClipboardDirect(true, distinctOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
                 break;
             case 'extension.pasteColumnInStatement':
                 await processColumnPaste(false, distinctOverride);
@@ -334,7 +352,7 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
 }
 
 // Existing logic for selection, batch, and preview
-async function processSelection() {
+async function processSelection(context: vscode.ExtensionContext) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
@@ -368,6 +386,12 @@ async function processSelection() {
                 if (useDistinct) {
                     vscode.window.showInformationMessage(`Selection: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
                 }
+                // Enhanced success message with value proposition
+                const itemCount = data.length;
+                vscode.window.showInformationMessage(
+                    `✅ Copied ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement to clipboard!`
+                );
+                await trackUsageAndPromptRating(context);
             } else {
                 vscode.window.showWarningMessage('No text selected.');
             }
@@ -379,7 +403,7 @@ async function processSelection() {
     }
 }
 
-async function processAndPasteClipboard() {
+async function processAndPasteClipboard(context: vscode.ExtensionContext) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -426,6 +450,12 @@ async function processAndPasteClipboard() {
             if (useDistinct) {
                 vscode.window.showInformationMessage(`Clipboard: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
             }
+            // Enhanced success message with value proposition
+            const itemCount = parsedData.length;
+            vscode.window.showInformationMessage(
+                `✅ Pasted ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement!`
+            );
+            await trackUsageAndPromptRating(context);
         } else {
             vscode.window.showWarningMessage('Clipboard is empty.');
         }
@@ -718,6 +748,80 @@ interface FormatOptions {
     oneValuePerLine: boolean;
     maxValuesPerLine: number;
     indentSize: number;
+}
+
+async function trackUsageAndPromptRating(context: vscode.ExtensionContext) {
+    // Increment usage counter
+    usageCounter++;
+    await context.globalState.update('inQueryGenerator.usageCounter', usageCounter);
+
+    // Backoff logic
+    const ratingPromptShown = context.globalState.get(RATING_PROMPT_KEY, false);
+    const ratingDismissed = context.globalState.get(RATING_DISMISSED_KEY, false);
+    const backoffCount = context.globalState.get(RATING_BACKOFF_KEY, 0);
+
+    // Custom backoff: [10, 50, 150, 250, 250, ...]
+    let nextThreshold = 0;
+    for (let i = 0; i <= backoffCount; i++) {
+        if (i < RATING_THRESHOLDS.length) {
+            nextThreshold += RATING_THRESHOLDS[i];
+        } else {
+            nextThreshold += RATING_THRESHOLDS[RATING_THRESHOLDS.length - 1];
+        }
+    }
+
+    if (!ratingPromptShown && !ratingDismissed && usageCounter >= nextThreshold) {
+        await showRatingPrompt(context);
+    }
+}
+
+async function showRatingPrompt(context: vscode.ExtensionContext) {
+    const rateAction = 'Rate Extension';
+    const laterAction = 'Remind Me Later';
+    const dontShowAction = "Don't Show Again";
+
+    const selection = await vscode.window.showInformationMessage(
+        `🌟 Enjoying the IN-Query Generator? Your rating helps others discover this time-saving tool!`,
+        rateAction,
+        laterAction,
+        dontShowAction
+    );
+
+    switch (selection) {
+        case rateAction:
+            // Mark as shown so we don't prompt again
+            await context.globalState.update(RATING_PROMPT_KEY, true);
+            await context.globalState.update(RATING_BACKOFF_KEY, 0);
+
+            // Extension ID from package.json: publisher.name
+            const extensionId = 'YakovT.Sql-in-query-statement-generator';
+            const marketplaceUrl = `https://marketplace.visualstudio.com/items?itemName=${extensionId}&ssr=false#review-details`;
+
+            try {
+                await vscode.env.openExternal(vscode.Uri.parse(marketplaceUrl));
+                vscode.window.showInformationMessage('Thank you for taking the time to rate our extension! 🙏');
+            } catch (error) {
+                // Fallback: copy URL to clipboard if opening fails
+                await vscode.env.clipboard.writeText(marketplaceUrl);
+                vscode.window.showInformationMessage('Rating URL copied to clipboard - paste it in your browser to rate! 📋');
+            }
+            break;
+
+        case laterAction: {
+            // Custom backoff: increment backoff count, keep usageCounter as is
+            let backoffCount = context.globalState.get(RATING_BACKOFF_KEY, 0);
+            backoffCount++;
+            await context.globalState.update(RATING_BACKOFF_KEY, backoffCount);
+            break;
+        }
+
+        case dontShowAction:
+            // Mark as dismissed permanently
+            await context.globalState.update(RATING_DISMISSED_KEY, true);
+            await context.globalState.update(RATING_PROMPT_KEY, true);
+            await context.globalState.update(RATING_BACKOFF_KEY, 0);
+            break;
+    }
 }
 
 export function deactivate() {

@@ -35,18 +35,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.formatValue = exports.generateInStatement = exports.parseText = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
 let statusBarItem;
+let usageCounter = 0;
+const RATING_THRESHOLDS = [10, 50, 150, 250]; // Custom backoff intervals
+const RATING_PROMPT_KEY = 'inQueryGenerator.ratingPromptShown';
+const RATING_DISMISSED_KEY = 'inQueryGenerator.ratingDismissed';
+const RATING_BACKOFF_KEY = 'inQueryGenerator.ratingBackoffCount';
 function activate(context) {
+    // Load usage counter from storage
+    usageCounter = context.globalState.get('inQueryGenerator.usageCounter', 0);
     // Register commands
     let copyDisposable = vscode.commands.registerCommand('extension.copyAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
-        yield processSelection();
+        yield processSelection(context);
     }));
     // Direct paste as IN
     let pasteInDisposable = vscode.commands.registerCommand('extension.pasteAsInStatementDirect', () => __awaiter(this, void 0, void 0, function* () {
-        yield processAndPasteClipboardDirect(false, undefined);
+        yield processAndPasteClipboardDirect(false, undefined, context);
+    }));
+    // Paste as IN Statement (for keybinding/alias)
+    let pasteAsInStatementDisposable = vscode.commands.registerCommand('extension.pasteAsInStatement', () => __awaiter(this, void 0, void 0, function* () {
+        yield processAndPasteClipboardDirect(false, undefined, context);
     }));
     // Direct paste as NOT IN
     let pasteNotInDisposable = vscode.commands.registerCommand('extension.pasteAsNotInStatementDirect', () => __awaiter(this, void 0, void 0, function* () {
-        yield processAndPasteClipboardDirect(true, undefined);
+        yield processAndPasteClipboardDirect(true, undefined, context);
     }));
     // Paste Special (dropdown)
     let pasteSpecialDisposable = vscode.commands.registerCommand('extension.pasteSpecialInStatement', () => __awaiter(this, void 0, void 0, function* () {
@@ -88,7 +99,7 @@ function activate(context) {
             updateStatusBarItem();
         }
     }));
-    context.subscriptions.push(copyDisposable, pasteInDisposable, pasteNotInDisposable, pasteSpecialDisposable, pasteColumnInDisposable, pasteColumnNotInDisposable, batchProcessDisposable, toggleSplitCommand, toggleNotInCommand);
+    context.subscriptions.push(copyDisposable, pasteInDisposable, pasteAsInStatementDisposable, pasteNotInDisposable, pasteSpecialDisposable, pasteColumnInDisposable, pasteColumnNotInDisposable, batchProcessDisposable, toggleSplitCommand, toggleNotInCommand);
 }
 exports.activate = activate;
 function updateStatusBarItem() {
@@ -166,7 +177,7 @@ function deduplicateValues(values, caseSensitive, trimWhitespace) {
     return { unique: result, removed: values.length - result.length };
 }
 // Direct paste as IN/NOT IN
-function processAndPasteClipboardDirect(forceNotIn, distinctOverride) {
+function processAndPasteClipboardDirect(forceNotIn, distinctOverride, context) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const editor = vscode.window.activeTextEditor;
@@ -211,6 +222,10 @@ function processAndPasteClipboardDirect(forceNotIn, distinctOverride) {
                 msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
             }
             vscode.window.showInformationMessage(msg);
+            // Track usage for rating prompt
+            if (context) {
+                yield trackUsageAndPromptRating(context);
+            }
         }
         catch (error) {
             vscode.window.showErrorMessage(`Error processing clipboard: ${error instanceof Error ? error.message : String(error)}`);
@@ -219,6 +234,7 @@ function processAndPasteClipboardDirect(forceNotIn, distinctOverride) {
 }
 // Paste Special dropdown
 function showPasteSpecialDropdown() {
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         // Ask for distinct option
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
@@ -247,10 +263,10 @@ function showPasteSpecialDropdown() {
             // Pass distinctOverride to the command
             switch (selected.command) {
                 case 'extension.pasteAsInStatementDirect':
-                    yield processAndPasteClipboardDirect(false, distinctOverride);
+                    yield processAndPasteClipboardDirect(false, distinctOverride, (_b = (_a = vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')) === null || _a === void 0 ? void 0 : _a.exports) === null || _b === void 0 ? void 0 : _b.context);
                     break;
                 case 'extension.pasteAsNotInStatementDirect':
-                    yield processAndPasteClipboardDirect(true, distinctOverride);
+                    yield processAndPasteClipboardDirect(true, distinctOverride, (_d = (_c = vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')) === null || _c === void 0 ? void 0 : _c.exports) === null || _d === void 0 ? void 0 : _d.context);
                     break;
                 case 'extension.pasteColumnInStatement':
                     yield processColumnPaste(false, distinctOverride);
@@ -338,7 +354,7 @@ function processColumnPaste(forceNotIn, distinctOverride) {
     });
 }
 // Existing logic for selection, batch, and preview
-function processSelection() {
+function processSelection(context) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const editor = vscode.window.activeTextEditor;
@@ -370,6 +386,10 @@ function processSelection() {
                     if (useDistinct) {
                         vscode.window.showInformationMessage(`Selection: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
                     }
+                    // Enhanced success message with value proposition
+                    const itemCount = data.length;
+                    vscode.window.showInformationMessage(`✅ Copied ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement to clipboard!`);
+                    yield trackUsageAndPromptRating(context);
                 }
                 else {
                     vscode.window.showWarningMessage('No text selected.');
@@ -384,7 +404,7 @@ function processSelection() {
         }
     });
 }
-function processAndPasteClipboard() {
+function processAndPasteClipboard(context) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const editor = vscode.window.activeTextEditor;
@@ -426,6 +446,10 @@ function processAndPasteClipboard() {
                 if (useDistinct) {
                     vscode.window.showInformationMessage(`Clipboard: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
                 }
+                // Enhanced success message with value proposition
+                const itemCount = parsedData.length;
+                vscode.window.showInformationMessage(`✅ Pasted ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement!`);
+                yield trackUsageAndPromptRating(context);
             }
             else {
                 vscode.window.showWarningMessage('Clipboard is empty.');
@@ -682,6 +706,70 @@ function formatValue(item) {
     return `'${item.replace(/'/g, "''")}'`;
 }
 exports.formatValue = formatValue;
+function trackUsageAndPromptRating(context) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Increment usage counter
+        usageCounter++;
+        yield context.globalState.update('inQueryGenerator.usageCounter', usageCounter);
+        // Backoff logic
+        const ratingPromptShown = context.globalState.get(RATING_PROMPT_KEY, false);
+        const ratingDismissed = context.globalState.get(RATING_DISMISSED_KEY, false);
+        const backoffCount = context.globalState.get(RATING_BACKOFF_KEY, 0);
+        // Custom backoff: [10, 50, 150, 250, 250, ...]
+        let nextThreshold = 0;
+        for (let i = 0; i <= backoffCount; i++) {
+            if (i < RATING_THRESHOLDS.length) {
+                nextThreshold += RATING_THRESHOLDS[i];
+            }
+            else {
+                nextThreshold += RATING_THRESHOLDS[RATING_THRESHOLDS.length - 1];
+            }
+        }
+        if (!ratingPromptShown && !ratingDismissed && usageCounter >= nextThreshold) {
+            yield showRatingPrompt(context);
+        }
+    });
+}
+function showRatingPrompt(context) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const rateAction = 'Rate Extension';
+        const laterAction = 'Remind Me Later';
+        const dontShowAction = "Don't Show Again";
+        const selection = yield vscode.window.showInformationMessage(`🌟 Enjoying the IN-Query Generator? Your rating helps others discover this time-saving tool!`, rateAction, laterAction, dontShowAction);
+        switch (selection) {
+            case rateAction:
+                // Mark as shown so we don't prompt again
+                yield context.globalState.update(RATING_PROMPT_KEY, true);
+                yield context.globalState.update(RATING_BACKOFF_KEY, 0);
+                // Extension ID from package.json: publisher.name
+                const extensionId = 'YakovT.Sql-in-query-statement-generator';
+                const marketplaceUrl = `https://marketplace.visualstudio.com/items?itemName=${extensionId}&ssr=false#review-details`;
+                try {
+                    yield vscode.env.openExternal(vscode.Uri.parse(marketplaceUrl));
+                    vscode.window.showInformationMessage('Thank you for taking the time to rate our extension! 🙏');
+                }
+                catch (error) {
+                    // Fallback: copy URL to clipboard if opening fails
+                    yield vscode.env.clipboard.writeText(marketplaceUrl);
+                    vscode.window.showInformationMessage('Rating URL copied to clipboard - paste it in your browser to rate! 📋');
+                }
+                break;
+            case laterAction: {
+                // Custom backoff: increment backoff count, keep usageCounter as is
+                let backoffCount = context.globalState.get(RATING_BACKOFF_KEY, 0);
+                backoffCount++;
+                yield context.globalState.update(RATING_BACKOFF_KEY, backoffCount);
+                break;
+            }
+            case dontShowAction:
+                // Mark as dismissed permanently
+                yield context.globalState.update(RATING_DISMISSED_KEY, true);
+                yield context.globalState.update(RATING_PROMPT_KEY, true);
+                yield context.globalState.update(RATING_BACKOFF_KEY, 0);
+                break;
+        }
+    });
+}
 function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
