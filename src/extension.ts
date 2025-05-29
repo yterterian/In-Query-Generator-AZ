@@ -642,26 +642,13 @@ async function previewAndApplyInStatement(inStatement: string, editor: vscode.Te
     }
 }
 
+import { parseText as pureParseText, formatValue as pureFormatValue, generateInStatement as pureGenerateInStatement, FormatOptions } from './pure';
+
 export function parseText(text: string): string[] {
     try {
-        text = text.replace(/^(NOT\s+)?IN\s*\(\s*'/i, '').replace(/'\s*\)$/, '');
-
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
         const splitOnWhitespace = config.get<boolean>('splitOnWhitespace', false);
-
-        let result: string[];
-
-        if (splitOnWhitespace) {
-            result = text.split(/\s+/)
-                .map(item => item.trim())
-                .filter(item => item !== '');
-        } else {
-            result = text.split(/[\r\n\t]+/)
-                .map(item => item.trim())
-                .filter(item => item !== '');
-        }
-
-        return result;
+        return pureParseText(text, splitOnWhitespace);
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to parse input: ${error instanceof Error ? error.message : String(error)}`);
         return [];
@@ -679,75 +666,28 @@ export function generateInStatement(data: string[], columnName?: string, forceNo
     if (typeof forceNotIn === 'boolean') {
         useNotIn = forceNotIn;
     }
-    const clauseType = useNotIn ? 'NOT IN' : 'IN';
-
     if (!columnName) {
         columnName = config.get<string>('defaultColumnName', '');
     }
-
+    const detectDataTypes = config.get<boolean>('detectDataTypes', true);
     const formatOptions = config.get<FormatOptions>('formatOptions', {
         oneValuePerLine: false,
         maxValuesPerLine: 5,
         indentSize: 4
     });
 
-    const formattedData = data.map(item => formatValue(item));
-
-    let valuesString: string;
-
-    if (formatOptions.oneValuePerLine && data.length > 1) {
-        const indent = ' '.repeat(formatOptions.indentSize);
-        valuesString = '\n' + indent + formattedData.join(',\n' + indent) + '\n';
-    } else if (!formatOptions.oneValuePerLine && formatOptions.maxValuesPerLine > 0 && data.length > formatOptions.maxValuesPerLine) {
-        const chunks: string[][] = [];
-        for (let i = 0; i < formattedData.length; i += formatOptions.maxValuesPerLine) {
-            chunks.push(formattedData.slice(i, i + formatOptions.maxValuesPerLine));
-        }
-
-        const indent = ' '.repeat(formatOptions.indentSize);
-        valuesString = '\n' + indent + chunks.map(chunk => chunk.join(', ')).join(',\n' + indent) + '\n';
-    } else {
-        valuesString = formattedData.join(', ');
-    }
-
-    const inStatement = columnName
-        ? `${columnName} ${clauseType} (${valuesString})`
-        : `${clauseType} (${valuesString})`;
-
-    return inStatement;
+    return pureGenerateInStatement(data, {
+        columnName,
+        useNotIn,
+        detectDataTypes,
+        formatOptions
+    });
 }
 
 export function formatValue(item: string): string {
-    if (!item || item.toLowerCase() === 'null') {
-        return 'NULL';
-    }
-
-    if (/^-?\d+(\.\d+)?$/.test(item)) {
-        return item;
-    }
-
     const config = vscode.workspace.getConfiguration('inQueryGenerator');
     const detectDataTypes = config.get<boolean>('detectDataTypes', true);
-
-    if (detectDataTypes) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(item)) {
-            return `DATE '${item}'`;
-        }
-        if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(item)) {
-            return `TIMESTAMP '${item}'`;
-        }
-        if (/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(item)) {
-            return `'${item}'`;
-        }
-    }
-
-    return `'${item.replace(/'/g, "''")}'`;
-}
-
-interface FormatOptions {
-    oneValuePerLine: boolean;
-    maxValuesPerLine: number;
-    indentSize: number;
+    return pureFormatValue(item, detectDataTypes);
 }
 
 async function trackUsageAndPromptRating(context: vscode.ExtensionContext) {
