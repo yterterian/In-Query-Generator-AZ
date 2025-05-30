@@ -39,6 +39,11 @@
     "configuration": {
       "title": "Enhanced In-Query Statement Generator",
       "properties": {
+        "inQueryGenerator.telemetry.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable telemetry data collection for Enhanced In-Query Statement Generator. If disabled, no usage data will be sent."
+        },
         "inQueryGenerator.splitOnWhitespace": {
           "type": "boolean",
           "default": false,

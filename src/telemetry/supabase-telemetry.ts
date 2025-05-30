@@ -23,8 +23,10 @@ async function getSupabaseClient() {
 }
 
 function isTelemetryEnabled(): boolean {
-  // Respect VS Code global telemetry setting only
-  return vscode.env.isTelemetryEnabled;
+  // Respect both VS Code global and extension-specific settings
+  const globalEnabled = vscode.env.isTelemetryEnabled;
+  const extEnabled = vscode.workspace.getConfiguration('inQueryGenerator.telemetry').get<boolean>('enabled', true);
+  return globalEnabled && extEnabled;
 }
 
 export class SupabaseTelemetryCollector implements TelemetryCollector {
@@ -73,6 +75,21 @@ function getSydneyTimestamp(): string {
   return `${dateParts.year}-${dateParts.month}-${dateParts.day}T${dateParts.hour}:${dateParts.minute}:${dateParts.second}+10:00`;
 }
 
+function getAppVersion(): string {
+  // Try to detect Azure Data Studio version, else fallback to VS Code version
+  const appName = vscode.env.appName || '';
+  if (appName.toLowerCase().includes('azure data studio')) {
+    // Try to get from process.env or fallback to version in title
+    const envVer = process.env['AZURE_DATA_STUDIO_VERSION'];
+    if (envVer) return envVer;
+    // Try to parse from appName (e.g., "Azure Data Studio - 1.100.2")
+    const match = appName.match(/(\d+\.\d+\.\d+)/);
+    if (match) return match[1];
+    return 'AzureDataStudio';
+  }
+  return vscode.version;
+}
+
     const event: TelemetryEvent = {
       id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
       event_name: eventName,
@@ -80,7 +97,7 @@ function getSydneyTimestamp(): string {
       session_id: vscode.env.sessionId || '',
       user_id: getAnonymousUserId(),
       extension_version: vscode.extensions.getExtension('YakovT.sql-in-query-statement-generator')?.packageJSON.version || 'unknown',
-      vscode_version: vscode.version,
+      vscode_version: getAppVersion(),
       platform: process.platform,
       properties,
       measurements,
