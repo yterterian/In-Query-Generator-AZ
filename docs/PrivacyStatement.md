@@ -1,4 +1,4 @@
-<!-- File: docs/privacy-statement.md -->
+
 
 # Privacy Statement - Enhanced In-Query Statement Generator
 

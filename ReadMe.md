@@ -189,6 +189,7 @@ Asset_Number IN (1336, 138804, 8869)
 - For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/AZDataStudioExtension/issues).
 - 📄 **[Privacy Statement](docs/privacy-statement.md)** — Learn what data we collect, what we don’t, and how you can control your privacy.
 
+
 ---
 
 ## Changelog
