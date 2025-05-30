@@ -242,7 +242,6 @@
   },
   "dependencies": {
     "-": "^0.0.1",
-    "@cypress/request": "^3.0.8",
     "@supabase/supabase-js": "^2.49.8",
     "azdata": "^1.0.0",
     "g": "^2.0.1",
@@ -259,7 +258,6 @@
   },
   "overrides": {
     "minimist": "^1.2.8",
-    "request": "^2.88.2",
     "diff": "^3.5.0",
     "tough-cookie": "^4.1.3"
   }
