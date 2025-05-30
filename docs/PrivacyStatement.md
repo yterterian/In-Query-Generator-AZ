@@ -2,7 +2,7 @@
 
 # Privacy Statement - Enhanced In-Query Statement Generator
 
-**Last updated:** [Current Date]
+**Last updated:** [30/05/2025]
 
 ---
 
