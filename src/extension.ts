@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
+import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
 
+let telemetryCollector: SupabaseTelemetryCollector | undefined;
 let statusBarItem: vscode.StatusBarItem;
 let usageCounter = 0;
 const RATING_THRESHOLDS = [10, 50, 150, 250]; // Custom backoff intervals
@@ -7,7 +9,15 @@ const RATING_PROMPT_KEY = 'inQueryGenerator.ratingPromptShown';
 const RATING_DISMISSED_KEY = 'inQueryGenerator.ratingDismissed';
 const RATING_BACKOFF_KEY = 'inQueryGenerator.ratingBackoffCount';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+    // Initialize telemetry
+    telemetryCollector = new SupabaseTelemetryCollector();
+    await telemetryCollector.logEvent('extension_activated', {
+        first_activation: !context.globalState.get('hasActivatedBefore', false),
+        workspace_type: vscode.workspace.workspaceFolders ? 'workspace' : 'no-workspace'
+    });
+    context.globalState.update('hasActivatedBefore', true);
+
     // Load usage counter from storage
     usageCounter = context.globalState.get('inQueryGenerator.usageCounter', 0);
 
@@ -243,18 +253,27 @@ async function showPasteSpecialDropdown() {
     );
     if (!distinctChoice) return;
     const distinctOverride = distinctChoice.value;
+    const dedupType = distinctOverride ? 'distinct' : 'all';
 
     const options = [
-        { label: 'Paste IN Statement', command: 'extension.pasteAsInStatementDirect' },
-        { label: 'Paste NOT IN Statement', command: 'extension.pasteAsNotInStatementDirect' },
-        { label: 'Paste Column + IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnInStatement' },
-        { label: 'Paste Column + NOT IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnNotInStatement' },
-        { label: 'Cancel', command: undefined }
+        { label: 'Paste IN Statement', command: 'extension.pasteAsInStatementDirect', option: 'paste_in_statement' },
+        { label: 'Paste NOT IN Statement', command: 'extension.pasteAsNotInStatementDirect', option: 'paste_not_in_statement' },
+        { label: 'Paste Column + IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnInStatement', option: 'paste_column_in_statement' },
+        { label: 'Paste Column + NOT IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnNotInStatement', option: 'paste_column_not_in_statement' },
+        { label: 'Cancel', command: undefined, option: 'cancel' }
     ];
     const selected = await vscode.window.showQuickPick(options, {
         placeHolder: 'Select an IN/NOT IN paste option'
     });
     if (selected && selected.command) {
+        // Telemetry: log granular usage
+        if (typeof telemetryCollector !== 'undefined') {
+            telemetryCollector.logEvent('paste_special_option', {
+                option: selected.option,
+                deduplication: dedupType,
+                trigger: 'context_menu_or_command'
+            });
+        }
         // Pass distinctOverride to the command
         switch (selected.command) {
             case 'extension.pasteAsInStatementDirect':
@@ -702,8 +721,17 @@ async function showRatingPrompt(context: vscode.ExtensionContext) {
     }
 }
 
-export function deactivate() {
+export async function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
+    if (telemetryCollector) {
+        await telemetryCollector.logEvent('extension_deactivated');
+        await telemetryCollector.dispose();
+    }
+}
+
+// Export for use in other modules
+export function getTelemetryCollector() {
+    return telemetryCollector;
 }

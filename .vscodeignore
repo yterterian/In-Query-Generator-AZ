@@ -1,0 +1,18 @@
+# Exclude sensitive and development files from VSIX package
+
+.env
+.gitignore
+coverage/
+.nyc_output/
+.clinerules/
+.github/
+.husky/
+.vscode/
+test/
+tests/
+*.log
+*.nyc_output
+*.nycrc.json
+bfg-1.14.0.jar
+__azurite_db_queue__.json
+__azurite_db_queue_extent__.json

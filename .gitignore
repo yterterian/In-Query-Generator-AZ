@@ -35,3 +35,6 @@ bfg-1.14.0.jar
 # Ignore local Azurite DB files
 __azurite_db_queue__.json
 __azurite_db_queue_extent__.json
+
+# Local environment variables
+.env
