@@ -89,6 +89,7 @@ The Enhanced In-Query Statement Generator is a powerful extension for Azure Data
 
 This extension contributes the following settings:
 
+* `inQueryGenerator.telemetry.enabled`: Enable or disable telemetry data collection for Enhanced In-Query Statement Generator. If disabled, no usage data will be sent.
 * `inQueryGenerator.splitOnWhitespace`: Split values on whitespace when generating IN statements.
 * `inQueryGenerator.useNotIn`: Generate NOT IN statements instead of IN statements.
 * `inQueryGenerator.defaultColumnName`: Default column name to use in the IN clause.
