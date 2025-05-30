@@ -34,3 +34,6 @@ bfg-1.14.0.jar
 
 # Local environment variables
 .env
+
+# Ignore Cline rules folder
+.clinerules/
