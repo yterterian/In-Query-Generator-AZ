@@ -46,58 +46,14 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   ): Promise<void> {
     if (!isTelemetryEnabled()) return;
 
-function getAnonymousUserId(): string {
-  // Use a stable, privacy-preserving hash of machineId + extension ID
-  const base = vscode.env.machineId + ':YakovT.sql-in-query-statement-generator';
-  // Simple hash: base64 of UTF-8 bytes, truncated for brevity
-  return Buffer.from(base, 'utf8').toString('base64').substr(0, 24);
-}
-
-function getSydneyTimestamp(): string {
-  // Use Intl.DateTimeFormat to get Sydney time, then format as ISO string
-  const now = new Date();
-  const sydneyTime = new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Sydney',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).formatToParts(now);
-
-  // Build ISO string in Sydney time
-  const dateParts: Record<string, string> = {};
-  sydneyTime.forEach(part => {
-    if (part.type !== 'literal') dateParts[part.type] = part.value;
-  });
-  // Format: YYYY-MM-DDTHH:mm:ss+10:00
-  return `${dateParts.year}-${dateParts.month}-${dateParts.day}T${dateParts.hour}:${dateParts.minute}:${dateParts.second}+10:00`;
-}
-
-function getAppVersion(): string {
-  // Try to detect Azure Data Studio version, else fallback to VS Code version
-  const appName = vscode.env.appName || '';
-  if (appName.toLowerCase().includes('azure data studio')) {
-    // Try to get from process.env or fallback to version in title
-    const envVer = process.env['AZURE_DATA_STUDIO_VERSION'];
-    if (envVer) return envVer;
-    // Try to parse from appName (e.g., "Azure Data Studio - 1.100.2")
-    const match = appName.match(/(\d+\.\d+\.\d+)/);
-    if (match) return match[1];
-    return 'AzureDataStudio';
-  }
-  return vscode.version;
-}
-
     const event: TelemetryEvent = {
       id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
       event_name: eventName,
-      timestamp: getSydneyTimestamp(),
+      timestamp: this.getSydneyTimestamp(),
       session_id: vscode.env.sessionId || '',
-      user_id: getAnonymousUserId(),
+      user_id: this.getAnonymousUserId(),
       extension_version: vscode.extensions.getExtension('YakovT.sql-in-query-statement-generator')?.packageJSON.version || 'unknown',
-      vscode_version: getAppVersion(),
+      vscode_version: this.getAppVersion(),
       platform: process.platform,
       properties,
       measurements,
@@ -113,6 +69,51 @@ function getAppVersion(): string {
     if (this.queue.length >= this.batchSize) {
       await this.flush();
     }
+  }
+
+  // --- Helper methods moved to class scope ---
+  private getAnonymousUserId(): string {
+    // Use a stable, privacy-preserving hash of machineId + extension ID
+    const base = vscode.env.machineId + ':YakovT.sql-in-query-statement-generator';
+    // Simple hash: base64 of UTF-8 bytes, truncated for brevity
+    return Buffer.from(base, 'utf8').toString('base64').substr(0, 24);
+  }
+
+  private getSydneyTimestamp(): string {
+    // Use Intl.DateTimeFormat to get Sydney time, then format as ISO string
+    const now = new Date();
+    const sydneyTime = new Intl.DateTimeFormat('en-AU', {
+      timeZone: 'Australia/Sydney',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).formatToParts(now);
+
+    // Build ISO string in Sydney time
+    const dateParts: Record<string, string> = {};
+    sydneyTime.forEach(part => {
+      if (part.type !== 'literal') dateParts[part.type] = part.value;
+    });
+    // Format: YYYY-MM-DDTHH:mm:ss+10:00
+    return `${dateParts.year}-${dateParts.month}-${dateParts.day}T${dateParts.hour}:${dateParts.minute}:${dateParts.second}+10:00`;
+  }
+
+  private getAppVersion(): string {
+    // Try to detect Azure Data Studio version, else fallback to VS Code version
+    const appName = vscode.env.appName || '';
+    if (appName.toLowerCase().includes('azure data studio')) {
+      // Try to get from process.env or fallback to version in title
+      const envVer = process.env['AZURE_DATA_STUDIO_VERSION'];
+      if (envVer) return envVer;
+      // Try to parse from appName (e.g., "Azure Data Studio - 1.100.2")
+      const match = appName.match(/(\d+\.\d+\.\d+)/);
+      if (match) return match[1];
+      return 'AzureDataStudio';
+    }
+    return vscode.version;
   }
 
   async logError(error: Error, context?: string, properties?: Record<string, string | number | boolean>): Promise<void> {
