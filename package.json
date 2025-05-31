@@ -3,7 +3,7 @@
   "displayName": "Enhanced In-Query Statement Generator",
   "publisher": "YakovT",
   "description": "Comprehensive tool for creating SQL IN clauses in Azure Data Studio with smart data type detection, formatting options, and batch processing.",
-  "version": "0.0.12",
+  "version": "0.12.1",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.50.0"
