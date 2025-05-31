@@ -1,7 +1,20 @@
 import * as vscode from 'vscode';
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
 
+interface SessionTelemetryState {
+    session_id: string;
+    start_time: string;
+    end_time?: string;
+    total_sql_generations: number;
+    by_command: Record<string, number>;
+    by_clause_type: Record<string, number>;
+    deduped_count: number;
+    duplicates_removed_total: number;
+    error_count: number;
+}
+
 let telemetryCollector: SupabaseTelemetryCollector | undefined;
+let sessionTelemetry: SessionTelemetryState | undefined;
 let statusBarItem: vscode.StatusBarItem;
 let usageCounter = 0;
 const RATING_THRESHOLDS = [10, 50, 150, 250]; // Custom backoff intervals
@@ -17,6 +30,18 @@ export async function activate(context: vscode.ExtensionContext) {
         workspace_type: vscode.workspace.workspaceFolders ? 'workspace' : 'no-workspace'
     });
     context.globalState.update('hasActivatedBefore', true);
+
+    // Initialize session telemetry state
+    sessionTelemetry = {
+        session_id: generateSessionId(),
+        start_time: new Date().toISOString(),
+        total_sql_generations: 0,
+        by_command: {},
+        by_clause_type: {},
+        deduped_count: 0,
+        duplicates_removed_total: 0,
+        error_count: 0
+    };
 
     // Load usage counter from storage
     usageCounter = context.globalState.get('inQueryGenerator.usageCounter', 0);
@@ -224,6 +249,19 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
                 editBuilder.replace(editor.selection, inStatement);
             }
         });
+        // Session-based telemetry aggregation
+        if (sessionTelemetry) {
+            sessionTelemetry.total_sql_generations += 1;
+            const cmd = 'pasteAs' + (forceNotIn ? 'NotIn' : 'In') + 'StatementDirect';
+            sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
+            const clause = forceNotIn ? 'NOT IN' : 'IN';
+            sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
+            if (useDistinct) {
+                sessionTelemetry.deduped_count += 1;
+                sessionTelemetry.duplicates_removed_total += removed;
+            }
+        }
+        // (Per-action telemetry removed; now aggregated per session)
         let msg = `${forceNotIn ? 'NOT IN' : 'IN'} statement inserted!`;
         if (useDistinct) {
             msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
@@ -357,6 +395,19 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
                     editBuilder.replace(editor.selection, inStatement);
                 }
             });
+            // Session-based telemetry aggregation
+            if (sessionTelemetry) {
+                sessionTelemetry.total_sql_generations += 1;
+                const cmd = 'pasteColumn' + (forceNotIn ? 'NotIn' : 'In') + 'Statement';
+                sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
+                const clause = forceNotIn ? 'NOT IN' : 'IN';
+                sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
+                if (useDistinct) {
+                    sessionTelemetry.deduped_count += 1;
+                    sessionTelemetry.duplicates_removed_total += removed;
+                }
+            }
+            // (Per-action telemetry removed; now aggregated per session)
             let msg = `${forceNotIn ? 'NOT IN' : 'IN'} statement inserted for column "${columnNameInput || selectedColumn}"!`;
             if (useDistinct) {
                 msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
@@ -400,6 +451,19 @@ async function processSelection(context: vscode.ExtensionContext) {
 
                 const inStatement = generateInStatement(data);
                 await previewAndApplyInStatement(inStatement, editor, true);
+                // Session-based telemetry aggregation
+                if (sessionTelemetry) {
+                    sessionTelemetry.total_sql_generations += 1;
+                    const cmd = 'copyAsInStatement';
+                    sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
+                    const clause = 'IN';
+                    sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
+                    if (useDistinct) {
+                        sessionTelemetry.deduped_count += 1;
+                        sessionTelemetry.duplicates_removed_total += removed;
+                    }
+                }
+                // (Per-action telemetry removed; now aggregated per session)
                 if (useDistinct) {
                     vscode.window.showInformationMessage(`Selection: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
                 }
@@ -499,6 +563,19 @@ async function processBatchDataFromArray(data: string[][]) {
 
         const inStatement = generateInStatement(values, columnNameInput, false);
         await previewAndApplyInStatement(inStatement, editor, false);
+        // Session-based telemetry aggregation
+        if (sessionTelemetry) {
+            sessionTelemetry.total_sql_generations += 1;
+            const cmd = 'batchProcessInStatement';
+            sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
+            const clause = 'IN';
+            sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
+            if (useDistinct) {
+                sessionTelemetry.deduped_count += 1;
+                sessionTelemetry.duplicates_removed_total += removed;
+            }
+        }
+        // (Per-action telemetry removed; now aggregated per session)
         if (useDistinct) {
             vscode.window.showInformationMessage(`Batch: ${removed} duplicate${removed === 1 ? '' : 's'} removed.`);
         }
@@ -725,10 +802,35 @@ export async function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
+    // Send session-based telemetry if there was any SQL generation activity
+    if (telemetryCollector && sessionTelemetry && sessionTelemetry.total_sql_generations > 0) {
+        sessionTelemetry.end_time = new Date().toISOString();
+        // Flatten nested objects for telemetry
+        const flatSession: Record<string, string | number | boolean> = {
+            session_id: sessionTelemetry.session_id,
+            start_time: sessionTelemetry.start_time,
+            end_time: sessionTelemetry.end_time || '',
+            total_sql_generations: sessionTelemetry.total_sql_generations,
+            by_command: JSON.stringify(sessionTelemetry.by_command),
+            by_clause_type: JSON.stringify(sessionTelemetry.by_clause_type),
+            deduped_count: sessionTelemetry.deduped_count,
+            duplicates_removed_total: sessionTelemetry.duplicates_removed_total,
+            error_count: sessionTelemetry.error_count
+        };
+        await telemetryCollector.logEvent('session_sql_utilization', flatSession);
+    }
     if (telemetryCollector) {
         await telemetryCollector.logEvent('extension_deactivated');
         await telemetryCollector.dispose();
     }
+}
+
+function generateSessionId(): string {
+    // Simple UUID v4 generator (not cryptographically secure, but fine for telemetry)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }
 
 // Export for use in other modules
