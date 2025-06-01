@@ -38,16 +38,6 @@
   },
   "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
   "activationEvents": [
-    "onCommand:extension.copyAsInStatement",
-    "onCommand:extension.pasteAsInStatement",
-    "onCommand:extension.pasteAsInStatementDirect",
-    "onCommand:extension.pasteAsNotInStatementDirect",
-    "onCommand:extension.pasteSpecialInStatement",
-    "onCommand:extension.pasteColumnInStatement",
-    "onCommand:extension.pasteColumnNotInStatement",
-    "onCommand:extension.batchProcessInStatement",
-    "onCommand:inQueryGenerator.toggleSplitOnWhitespace",
-    "onCommand:inQueryGenerator.toggleNotIn"
   ],
   "main": "./out/extension.js",
   "contributes": {
