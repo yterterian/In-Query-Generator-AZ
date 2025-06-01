@@ -136,8 +136,8 @@ function updateStatusBarItem(): void {
     const useNotIn = config.get<boolean>('useNotIn', false);
 
     if (statusBarActions.length === 1 && statusBarActions[0] === 'dropdown') {
-        statusBarItem.text = 'IN Tools';
-        statusBarItem.tooltip = 'Click to access IN/NOT IN features';
+        statusBarItem.text = 'SQL IN Tools';
+        statusBarItem.tooltip = 'Click to access SQL IN/NOT IN features';
         statusBarItem.command = 'extension.pasteSpecialInStatement';
         statusBarItem.show();
     } else if (statusBarActions.length > 0) {
@@ -160,8 +160,8 @@ function updateStatusBarItem(): void {
                 tooltip = 'Paste NOT IN Statement';
                 break;
             case 'extension.pasteSpecialInStatement':
-                text = 'IN Tools';
-                tooltip = 'Show IN/NOT IN dropdown';
+                text = 'SQL IN Tools';
+                tooltip = 'Show SQL IN/NOT IN dropdown';
                 break;
             case 'extension.pasteColumnInStatement':
                 text = 'Paste Col+IN';
@@ -172,8 +172,8 @@ function updateStatusBarItem(): void {
                 tooltip = 'Paste Column + NOT IN Statement';
                 break;
             default:
-                text = 'IN Tools';
-                tooltip = 'IN/NOT IN features';
+                text = 'SQL IN Tools';
+                tooltip = 'SQL IN/NOT IN features';
         }
         statusBarItem.text = text;
         statusBarItem.tooltip = tooltip + ' (right-click for dropdown)';
@@ -755,7 +755,7 @@ async function showRatingPrompt(context: vscode.ExtensionContext) {
     const dontShowAction = "Don't Show Again";
 
     const selection = await vscode.window.showInformationMessage(
-        `🌟 Enjoying the IN-Query Generator? Your rating helps others discover this time-saving tool!`,
+        `🌟 Enjoying the SQL IN Clause Generator? Your rating helps others discover this time-saving tool!`,
         rateAction,
         laterAction,
         dontShowAction

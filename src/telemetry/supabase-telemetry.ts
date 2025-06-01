@@ -1,5 +1,5 @@
 /**
- * Supabase-based telemetry collector for Enhanced In-Query Statement Generator
+ * Supabase-based telemetry collector for SQL IN Clause Generator
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector } from './types';
@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const telemetryOutputChannel = vscode.window.createOutputChannel('InQuery Telemetry');
+const telemetryOutputChannel = vscode.window.createOutputChannel('SQL IN Clause Telemetry');
 
 // Lazy import to avoid dependency if not needed
 let supabase: SupabaseClient | undefined = undefined;

@@ -1,6 +1,4 @@
-
-
-# Privacy Statement - Enhanced In-Query Statement Generator
+# Privacy Statement - SQL IN Clause Generator
 
 **Last updated:** [30/05/2025]
 
@@ -8,7 +6,7 @@
 
 ## Overview
 
-We are committed to protecting your privacy. This privacy statement explains what data our VS Code extension **"Enhanced In-Query Statement Generator"** collects, how we use it, and your choices regarding this data collection.
+We are committed to protecting your privacy. This privacy statement explains what data our VS Code extension **"SQL IN Clause Generator"** collects, how we use it, and your choices regarding this data collection.
 
 ---
 
@@ -118,7 +116,7 @@ If you have questions about this privacy statement or our data practices:
 
 ## Extension Information
 
-- **Extension Name:** Enhanced In-Query Statement Generator  
+- **Extension Name:** SQL IN Clause Generator  
 - **Publisher:** YakovT  
 - **Version:** 0.0.12  
 - **License:** MIT  

@@ -1,9 +1,9 @@
 {
   "name": "sql-in-query-statement-generator",
-  "displayName": "Enhanced In-Query Statement Generator",
+  "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
-  "description": "Comprehensive tool for creating SQL IN clauses in Azure Data Studio with smart data type detection, formatting options, and batch processing.",
-  "version": "0.12.2",
+  "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for Azure Data Studio and VS Code.",
+  "version": "0.13.0",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.50.0"
@@ -12,6 +12,21 @@
     "Other",
     "Formatters",
     "Snippets"
+  ],
+  "keywords": [
+    "SQL IN Clause",
+    "SQL Formatter",
+    "Generate SQL",
+    "SQL Automation",
+    "productivity tool",
+    "list to SQL",
+    "Excel data",
+    "IN clause generator",
+    "NOT IN",
+    "Azure Data Studio",
+    "VS Code",
+    "batch processing",
+    "deduplication"
   ],
   "repository": {
     "type": "git",
@@ -37,12 +52,12 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Enhanced In-Query Statement Generator",
+      "title": "SQL IN Clause Generator",
       "properties": {
         "inQueryGenerator.telemetry.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable or disable telemetry data collection for Enhanced In-Query Statement Generator. If disabled, no usage data will be sent."
+          "description": "Enable or disable telemetry data collection for SQL IN Clause Generator. If disabled, no usage data will be sent."
         },
         "inQueryGenerator.splitOnWhitespace": {
           "type": "boolean",

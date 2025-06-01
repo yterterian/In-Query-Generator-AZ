@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="images/logo.png" alt="In-Query Generator Logo" width="200"/>
+  <img src="images/logo.png" alt="SQL IN Clause Generator Logo" width="200"/>
 </p>
 
-# Enhanced In-Query Statement Generator for Azure Data Studio & VS Code
+# SQL IN Clause Generator for Azure Data Studio & VS Code
 
 ## Description
 
-The Enhanced In-Query Statement Generator is a powerful extension for Azure Data Studio and VS Code that streamlines the creation of SQL `IN` and `NOT IN` clauses. It supports smart data type detection, batch processing, deduplication, and advanced formatting, making it ideal for working with large datasets and complex queries.
+SQL IN Clause Generator is a powerful extension for Azure Data Studio and VS Code that streamlines the creation of SQL `IN` and `NOT IN` clauses. Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. It supports smart data type detection, batch processing, deduplication, and advanced formatting, making it ideal for working with large datasets and complex queries.
 
 ---
 
@@ -31,7 +31,7 @@ The Enhanced In-Query Statement Generator is a powerful extension for Azure Data
 
 1. Open Azure Data Studio or VS Code
 2. Go to the Extensions view (Ctrl+Shift+X)
-3. Search for "Enhanced In-Query Statement Generator"
+3. Search for "SQL IN Clause Generator"
 4. Click Install
 
 ---
@@ -89,7 +89,7 @@ The Enhanced In-Query Statement Generator is a powerful extension for Azure Data
 
 This extension contributes the following settings:
 
-* `inQueryGenerator.telemetry.enabled`: Enable or disable telemetry data collection for Enhanced In-Query Statement Generator. If disabled, no usage data will be sent.
+* `inQueryGenerator.telemetry.enabled`: Enable or disable telemetry data collection for SQL IN Clause Generator. If disabled, no usage data will be sent.
 * `inQueryGenerator.splitOnWhitespace`: Split values on whitespace when generating IN statements.
 * `inQueryGenerator.useNotIn`: Generate NOT IN statements instead of IN statements.
 * `inQueryGenerator.defaultColumnName`: Default column name to use in the IN clause.
@@ -189,7 +189,6 @@ Asset_Number IN (1336, 138804, 8869)
 - All features and configuration options are documented in this ReadMe and in the extension's settings UI.
 - For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/AZDataStudioExtension/issues).
 - 📄 **[Privacy Statement](https://github.com/yterterian/In-Query-Generator-AZ/blob/main/docs/PrivacyStatement.md)** — Learn what data we collect, what we don’t, and how you can control your privacy.
-
 
 ---
 
