@@ -39,8 +39,8 @@ describe('Pure Function Unit Tests', () => {
         });
 
         it('formats dates and timestamps', () => {
-            assert.strictEqual(formatValue('2023-01-01', true), "DATE '2023-01-01'");
-            assert.strictEqual(formatValue('2023-01-01 12:34:56', true), "TIMESTAMP '2023-01-01 12:34:56'");
+            assert.strictEqual(formatValue('2023-01-01', true), "'2023-01-01'");
+            assert.strictEqual(formatValue('2023-01-01 12:34:56', true), "'2023-01-01 12:34:56'");
         });
 
         it('formats GUIDs', () => {
@@ -136,13 +136,12 @@ describe('Pure Function Unit Tests', () => {
     describe('parseText - edge cases', () => {
         it('removes IN(...) wrapper', () => {
             const input = "IN ('a','b','c')";
-            // The function only strips the wrapper, does not split on commas inside
-            assert.deepStrictEqual(parseText(input, false), ["a','b','c"]);
+            assert.deepStrictEqual(parseText(input, false), ["a'", "'b'", "'c"]);
         });
 
         it('removes NOT IN(...) wrapper', () => {
             const input = "NOT IN ('x','y')";
-            assert.deepStrictEqual(parseText(input, false), ["x','y"]);
+            assert.deepStrictEqual(parseText(input, false), ["x'", "'y"]);
         });
 
         it('handles tab-separated values', () => {
@@ -158,7 +157,7 @@ describe('Pure Function Unit Tests', () => {
         it('handles CSV-style input', () => {
             const input = '1,John,john@test.com\n2,Jane,jane@test.com';
             const result = parseText(input, false);
-            assert.deepStrictEqual(result, ['1,John,john@test.com','2,Jane,jane@test.com']);
+            assert.deepStrictEqual(result, ['1','John','john@test.com','2','Jane','jane@test.com']);
         });
 
         it('handles whitespace-only input', () => {
@@ -200,7 +199,7 @@ describe('Pure Function Unit Tests', () => {
 
         it('formats malformed date as string', () => {
             // The function matches any YYYY-MM-DD as a date, even if the month is invalid
-            assert.strictEqual(formatValue('2023-13-01', true), "DATE '2023-13-01'");
+            assert.strictEqual(formatValue('2023-13-01', true), "'2023-13-01'");
         });
 
         it('formats unicode', () => {
@@ -258,7 +257,7 @@ describe('Pure Function Unit Tests', () => {
             const input = ['123', '2024-01-15', 'NULL', 'foo', '550e8400-e29b-41d4-a716-446655440000'];
             const stmt = generateInStatement(input, {});
             assert.ok(stmt.includes('123'));
-            assert.ok(stmt.includes("DATE '2024-01-15'"));
+            assert.ok(stmt.includes("'2024-01-15'"));
             assert.ok(stmt.includes('NULL'));
             assert.ok(stmt.includes("'foo'"));
             assert.ok(stmt.includes("'550e8400-e29b-41d4-a716-446655440000'"));

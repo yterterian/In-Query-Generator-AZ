@@ -22,9 +22,9 @@ export function parseText(
             .map(item => item.trim())
             .filter(item => item !== '');
     } else {
-        // Split first by newlines, then flatten by splitting each line by tabs or commas
+        // Split first by any newline or carriage return, then flatten by splitting each line by tabs or commas
         result = text
-            .split(/\r?\n/)
+            .split(/[\r\n]+/)
             .flatMap(line => line.split(/\t|,/))
             .map(item => item.trim())
             .filter(item => item !== '');
