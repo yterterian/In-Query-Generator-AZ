@@ -22,7 +22,10 @@ export function parseText(
             .map(item => item.trim())
             .filter(item => item !== '');
     } else {
-        result = text.split(/[\r\n\t]+/)
+        // Split first by newlines, then flatten by splitting each line by tabs or commas
+        result = text
+            .split(/\r?\n/)
+            .flatMap(line => line.split(/\t|,/))
             .map(item => item.trim())
             .filter(item => item !== '');
     }
@@ -44,10 +47,12 @@ export function formatValue(
 
     if (detectDataTypes) {
         if (/^\d{4}-\d{2}-\d{2}$/.test(item)) {
-            return `DATE '${item}'`;
+            // SQL Server: use string literal for date
+            return `'${item}'`;
         }
         if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(item)) {
-            return `TIMESTAMP '${item}'`;
+            // SQL Server: use string literal for datetime
+            return `'${item}'`;
         }
         if (/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(item)) {
             return `'${item}'`;

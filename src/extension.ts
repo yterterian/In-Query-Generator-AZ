@@ -221,7 +221,33 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             vscode.window.showWarningMessage('Clipboard is empty.');
             return;
         }
-        let parsedData = parseText(clipboardText);
+
+        // Detect if clipboard contains tabular data (multiple columns)
+        const { hasHeaders, data } = detectTableData(clipboardText);
+
+        let parsedData: string[] = [];
+        if (hasHeaders && data.length > 1 && data[0].length > 1) {
+            // Multiple columns detected, prompt user to select column
+            const headers = data[0];
+            const columns = headers.map((header, index) => ({
+                label: header,
+                index: index
+            }));
+            const selectedColumn = await vscode.window.showQuickPick(
+                columns.map(col => col.label),
+                { placeHolder: 'Multiple columns detected. Select the column to use for the IN clause (first value from each column shown below).' }
+            );
+            if (!selectedColumn) {
+                vscode.window.showWarningMessage('No column selected.');
+                return;
+            }
+            const columnIndex = columns.find(col => col.label === selectedColumn)?.index || 0;
+            parsedData = data.slice(1).map(row => row[columnIndex] || '').filter(val => val !== '');
+        } else {
+            // Single column or non-tabular data, use default parseText
+            parsedData = parseText(clipboardText);
+        }
+
         if (parsedData.length === 0) {
             vscode.window.showWarningMessage('No valid data found in clipboard.');
             return;
