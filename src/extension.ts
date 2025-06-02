@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
 
 interface SessionTelemetryState {
@@ -826,11 +827,14 @@ export async function deactivate() {
 }
 
 function generateSessionId(): string {
-    // Simple UUID v4 generator (not cryptographically secure, but fine for telemetry)
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    // Secure UUID generation using crypto.randomBytes
+    const randomBytes = crypto.randomBytes(16);
+    randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40; // Set version to 4
+    randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80; // Set variant to RFC4122
+    return [...randomBytes].map((byte, index) => {
+        const hex = byte.toString(16).padStart(2, '0');
+        return (index === 4 || index === 6 || index === 8 || index === 10) ? `-${hex}` : hex;
+    }).join('');
 }
 
 // Export for use in other modules
