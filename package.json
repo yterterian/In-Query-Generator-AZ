@@ -3,7 +3,7 @@
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
   "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for Azure Data Studio and VS Code.",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.50.0"
@@ -37,8 +37,7 @@
     "url": "https://github.com/yterterian/AZDataStudioExtension/issues"
   },
   "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
-  "activationEvents": [
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
@@ -223,11 +222,13 @@
     "coverage:pure": "c8 --reporter=html --reporter=text npm run test:pure",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "pretest": "npm run compile"
+    "pretest": "npm run compile",
+    "test:csv": "mocha -r ts-node/register src/test/suite/csvParser.test.ts"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^14.14.6",
+    "@types/node-fetch": "^2.6.12",
     "@types/vscode": "^1.50.0",
     "@typescript-eslint/eslint-plugin": "^8.33.0",
     "@typescript-eslint/parser": "^8.33.0",
@@ -253,6 +254,7 @@
     "minimatch": "^10.0.1",
     "minimist": "^1.2.8",
     "mkdirp": "^3.0.1",
+    "node-fetch": "^2.7.0",
     "uuid": "^9.0.0"
   },
   "lint-staged": {

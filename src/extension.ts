@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import fetch from 'node-fetch';
+if (!(globalThis as any).fetch) { (globalThis as any).fetch = fetch; }
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
 
 interface SessionTelemetryState {
@@ -609,47 +611,29 @@ async function processBatchDataFromArray(data: string[][]) {
     }
 }
 
+import { detectAndParseTableData, isSingleColumnWithCommas, parseCsvLine } from './utils/csvParser';
+
+// Improved robust tabular data detection
 function detectTableData(text: string): { hasHeaders: boolean, data: string[][], debugInfo?: string } {
-    const lines = text.trim().split(/\r?\n/);
+    const parseResult = detectAndParseTableData(text);
 
-    if (lines.length > 1) {
-        // Try tab or comma first
-        let delimiter = '\t';
-        let columnCounts = lines.map(line => line.split(delimiter).length);
-
-        if (columnCounts[0] <= 1 || !columnCounts.every(count => count === columnCounts[0])) {
-            delimiter = ',';
-            columnCounts = lines.map(line => line.split(delimiter).length);
-        }
-
-        let debugInfo = `Delimiter: "${delimiter}"\nColumn counts: ${columnCounts.join(', ')}\nFirst 3 lines:\n${lines.slice(0, 3).join('\n')}`;
-
-        // Multi-column table
-        const isConsistent = columnCounts.every(count => count === columnCounts[0] && count > 1);
-        if (isConsistent) {
+    // If parsing failed but we suspect single-column data with commas, treat as single column
+    if (!parseResult.hasHeaders && parseResult.data.length === 0) {
+        if (isSingleColumnWithCommas(text)) {
+            const lines = text.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
             return {
                 hasHeaders: true,
-                data: lines.map(line => line.split(delimiter).map(cell => cell.trim())),
-                debugInfo
+                data: lines.map(line => [parseCsvLine(line, ',')[0]]),
+                debugInfo: 'Detected single-column data with embedded commas'
             };
         }
-
-        // Single-column table (header + values)
-        const isSingleColumn = columnCounts.every(count => count === 1);
-        if (isSingleColumn) {
-            // Treat first line as header, rest as values
-            const data = lines.map(line => [line.trim()]);
-            return {
-                hasHeaders: true,
-                data,
-                debugInfo: debugInfo + '\n(Single-column mode)'
-            };
-        }
-
-        return { hasHeaders: false, data: [], debugInfo };
     }
 
-    return { hasHeaders: false, data: [], debugInfo: 'Not enough lines for tabular data.' };
+    return {
+        hasHeaders: parseResult.hasHeaders,
+        data: parseResult.data,
+        debugInfo: parseResult.debugInfo
+    };
 }
 
 async function previewAndApplyInStatement(inStatement: string, editor: vscode.TextEditor, isCopyCommand: boolean) {
