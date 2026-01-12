@@ -9,6 +9,18 @@ export interface FormatOptions {
     indentSize: number;
 }
 
+/**
+ * Data type detection strategy for value formatting
+ */
+export enum DataTypeMode {
+    /** Automatically detect numbers, dates, GUIDs (smart mode) */
+    Auto = 'auto',
+    /** Force all values to be treated as text (quoted) */
+    ForceText = 'force_text',
+    /** Force all values to be treated as numbers (unquoted, with fallback) */
+    ForceNumber = 'force_number'
+}
+
 export function parseText(
     text: string,
     splitOnWhitespace: boolean = false
@@ -33,41 +45,130 @@ export function parseText(
     return result;
 }
 
+/**
+ * Type guard: checks if a string is a valid number
+ */
+function isNumeric(value: string): boolean {
+    return /^-?\d+(\.\d+)?$/.test(value);
+}
+
+/**
+ * Type guard: checks if a string is a date
+ */
+function isDate(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/**
+ * Type guard: checks if a string is a datetime
+ */
+function isDateTime(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(value);
+}
+
+/**
+ * Type guard: checks if a string is a GUID
+ */
+function isGuid(value: string): boolean {
+    return /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(value);
+}
+
+/**
+ * Escapes single quotes for SQL string literals
+ */
+function escapeSqlString(value: string): string {
+    return value.replace(/'/g, "''");
+}
+
+/**
+ * Formats a string value as a quoted SQL string
+ */
+function formatAsText(value: string): string {
+    return `'${escapeSqlString(value)}'`;
+}
+
+/**
+ * Attempts to format a value as a number, returns formatted value with fallback to text
+ */
+function tryFormatAsNumber(value: string): string {
+    if (isNumeric(value)) {
+        return value;
+    }
+    // Silent fallback: if not numeric, quote it
+    return formatAsText(value);
+}
+
+/**
+ * Formats a value based on auto-detection rules
+ */
+function formatAutoDetect(value: string): string {
+    // Numbers stay unquoted
+    if (isNumeric(value)) {
+        return value;
+    }
+
+    // Dates, datetimes, and GUIDs are quoted
+    if (isDate(value) || isDateTime(value) || isGuid(value)) {
+        return formatAsText(value);
+    }
+
+    // Everything else is quoted
+    return formatAsText(value);
+}
+
+/**
+ * Formats a single value for SQL IN clause based on data type strategy.
+ *
+ * @param item - The value to format
+ * @param dataTypeMode - The detection strategy to use
+ * @returns Formatted SQL value (e.g., 'text', 123, NULL)
+ *
+ * @remarks
+ * - Empty strings and 'null' (case-insensitive) are always formatted as NULL
+ * - ForceNumber mode silently falls back to quoting non-numeric values
+ * - All string values have single quotes escaped ('' in SQL)
+ */
 export function formatValue(
     item: string,
-    detectDataTypes: boolean = true
+    dataTypeMode: DataTypeMode = DataTypeMode.Auto
 ): string {
+    // NULL handling is universal - always takes precedence
     if (!item || item.toLowerCase() === 'null') {
         return 'NULL';
     }
 
-    if (/^-?\d+(\.\d+)?$/.test(item)) {
-        return item;
-    }
+    // Apply formatting strategy based on mode
+    switch (dataTypeMode) {
+        case DataTypeMode.Auto:
+            return formatAutoDetect(item);
 
-    if (detectDataTypes) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(item)) {
-            // SQL Server: use string literal for date
-            return `'${item}'`;
-        }
-        if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(item)) {
-            // SQL Server: use string literal for datetime
-            return `'${item}'`;
-        }
-        if (/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(item)) {
-            return `'${item}'`;
+        case DataTypeMode.ForceText:
+            return formatAsText(item);
+
+        case DataTypeMode.ForceNumber:
+            return tryFormatAsNumber(item);
+
+        default: {
+            // Exhaustive check - TypeScript will error if we miss a case
+            const _exhaustive: never = dataTypeMode;
+            throw new Error(`Unhandled DataTypeMode: ${_exhaustive}`);
         }
     }
-
-    return `'${item.replace(/'/g, "''")}'`;
 }
 
+/**
+ * Generates SQL IN/NOT IN statement from array of values.
+ *
+ * @param data - Array of string values to include in the IN clause
+ * @param options - Configuration options
+ * @returns Formatted SQL IN/NOT IN statement
+ */
 export function generateInStatement(
     data: string[],
     options?: {
         columnName?: string;
         useNotIn?: boolean;
-        detectDataTypes?: boolean;
+        dataTypeMode?: DataTypeMode;
         formatOptions?: FormatOptions;
     }
 ): string {
@@ -78,7 +179,7 @@ export function generateInStatement(
     const {
         columnName = '',
         useNotIn = false,
-        detectDataTypes = true,
+        dataTypeMode = DataTypeMode.Auto,
         formatOptions = {
             oneValuePerLine: false,
             maxValuesPerLine: 5,
@@ -88,7 +189,8 @@ export function generateInStatement(
 
     const clauseType = useNotIn ? 'NOT IN' : 'IN';
 
-    const formattedData = data.map(item => formatValue(item, detectDataTypes));
+    // Map values through formatValue with chosen data type mode
+    const formattedData = data.map(item => formatValue(item, dataTypeMode));
 
     let valuesString: string;
 

@@ -37,3 +37,7 @@ bfg-1.14.0.jar
 
 # Ignore Cline rules folder
 .clinerules/
+
+# Ignore Claude Code files
+.claude/
+CLAUDE.md

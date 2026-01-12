@@ -56,17 +56,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Direct paste as IN
     let pasteInDisposable = vscode.commands.registerCommand('extension.pasteAsInStatementDirect', async () => {
-        await processAndPasteClipboardDirect(false, undefined, context);
+        await processAndPasteClipboardDirect(false, undefined, undefined, context);
     });
 
     // Paste as IN Statement (for keybinding/alias)
     let pasteAsInStatementDisposable = vscode.commands.registerCommand('extension.pasteAsInStatement', async () => {
-        await processAndPasteClipboardDirect(false, undefined, context);
+        await processAndPasteClipboardDirect(false, undefined, undefined, context);
     });
 
     // Direct paste as NOT IN
     let pasteNotInDisposable = vscode.commands.registerCommand('extension.pasteAsNotInStatementDirect', async () => {
-        await processAndPasteClipboardDirect(true, undefined, context);
+        await processAndPasteClipboardDirect(true, undefined, undefined, context);
     });
 
     // Paste Special (dropdown)
@@ -76,12 +76,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Paste Column + IN
     let pasteColumnInDisposable = vscode.commands.registerCommand('extension.pasteColumnInStatement', async () => {
-        await processColumnPaste(false, undefined);
+        await processColumnPaste(false, undefined, undefined);
     });
 
     // Paste Column + NOT IN
     let pasteColumnNotInDisposable = vscode.commands.registerCommand('extension.pasteColumnNotInStatement', async () => {
-        await processColumnPaste(true, undefined);
+        await processColumnPaste(true, undefined, undefined);
     });
 
     let batchProcessDisposable = vscode.commands.registerCommand('extension.batchProcessInStatement', async () => {
@@ -211,7 +211,7 @@ function deduplicateValues(
 }
 
 // Direct paste as IN/NOT IN
-async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverride: boolean | undefined, context: vscode.ExtensionContext) {
+async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverride: boolean | undefined, dataTypeModeOverride: DataTypeMode | undefined, context: vscode.ExtensionContext) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -270,7 +270,7 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             parsedData = dedup.unique;
         }
 
-        const inStatement = generateInStatement(parsedData, undefined, forceNotIn);
+        const inStatement = generateInStatementWithMode(parsedData, undefined, forceNotIn, dataTypeModeOverride);
         editor.edit(editBuilder => {
             if (editor.selection.isEmpty) {
                 editBuilder.insert(editor.selection.active, inStatement);
@@ -306,15 +306,21 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
 }
 
 // Paste Special dropdown
+/**
+ * Paste Special dropdown with 3-stage flow:
+ * Stage 1: Choose distinct vs all values
+ * Stage 2: Choose action type (IN, NOT IN, Column+IN, Column+NOT IN)
+ * Stage 3: Choose data type override (Auto, Force Text, Force Number)
+ */
 async function showPasteSpecialDropdown() {
-    // Ask for distinct option
+    // STAGE 1: Distinct choice
     const distinctChoice = await vscode.window.showQuickPick(
         [
             { label: 'Distinct values (remove duplicates)', value: true },
             { label: 'All values (keep duplicates)', value: false }
         ],
         {
-            placeHolder: 'Choose whether to remove duplicate values for this operation',
+            placeHolder: 'Stage 1 of 3: Choose whether to remove duplicate values',
             ignoreFocusOut: true
         }
     );
@@ -322,47 +328,80 @@ async function showPasteSpecialDropdown() {
     const distinctOverride = distinctChoice.value;
     const dedupType = distinctOverride ? 'distinct' : 'all';
 
-    const options = [
+    // STAGE 2: Action choice
+    const actionOptions = [
         { label: 'Paste IN Statement', command: 'extension.pasteAsInStatementDirect', option: 'paste_in_statement' },
         { label: 'Paste NOT IN Statement', command: 'extension.pasteAsNotInStatementDirect', option: 'paste_not_in_statement' },
         { label: 'Paste Column + IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnInStatement', option: 'paste_column_in_statement' },
         { label: 'Paste Column + NOT IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnNotInStatement', option: 'paste_column_not_in_statement' },
         { label: 'Cancel', command: undefined, option: 'cancel' }
     ];
-    const selected = await vscode.window.showQuickPick(options, {
-        placeHolder: 'Select an IN/NOT IN paste option'
+    const actionChoice = await vscode.window.showQuickPick(actionOptions, {
+        placeHolder: 'Stage 2 of 3: Select paste action'
     });
-    if (selected && selected.command) {
-        // Telemetry: log granular usage
-        if (typeof telemetryCollector !== 'undefined') {
-            telemetryCollector.logEvent('paste_special_option', {
-                option: selected.option,
-                deduplication: dedupType,
-                trigger: 'context_menu_or_command'
-            });
+    if (!actionChoice || !actionChoice.command) return;
+
+    // STAGE 3: Data type override choice
+    const dataTypeChoice = await vscode.window.showQuickPick(
+        [
+            {
+                label: '$(symbol-misc) Auto-detect (Smart)',
+                description: 'Automatically detect numbers, dates, GUIDs',
+                value: DataTypeMode.Auto,
+                detail: 'Default behavior - intelligently formats each value'
+            },
+            {
+                label: '$(quote) Force Text (Quote All)',
+                description: 'Treat all values as text (quoted)',
+                value: DataTypeMode.ForceText,
+                detail: 'Useful for IDs that look like numbers but should be text'
+            },
+            {
+                label: '$(symbol-number) Force Number (Unquote All)',
+                description: 'Treat all values as numbers (unquoted)',
+                value: DataTypeMode.ForceNumber,
+                detail: 'Non-numeric values will be quoted automatically (fallback)'
+            }
+        ],
+        {
+            placeHolder: 'Stage 3 of 3: Choose data type formatting',
+            ignoreFocusOut: true
         }
-        // Pass distinctOverride to the command
-        switch (selected.command) {
-            case 'extension.pasteAsInStatementDirect':
-                await processAndPasteClipboardDirect(false, distinctOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
-                break;
-            case 'extension.pasteAsNotInStatementDirect':
-                await processAndPasteClipboardDirect(true, distinctOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
-                break;
-            case 'extension.pasteColumnInStatement':
-                await processColumnPaste(false, distinctOverride);
-                break;
-            case 'extension.pasteColumnNotInStatement':
-                await processColumnPaste(true, distinctOverride);
-                break;
-            default:
-                break;
-        }
+    );
+    if (!dataTypeChoice) return;
+    const dataTypeModeOverride = dataTypeChoice.value;
+
+    // Telemetry: log granular usage
+    if (typeof telemetryCollector !== 'undefined') {
+        telemetryCollector.logEvent('paste_special_option', {
+            option: actionChoice.option,
+            deduplication: dedupType,
+            data_type_mode: dataTypeModeOverride,
+            trigger: 'context_menu_or_command'
+        });
+    }
+
+    // Execute the chosen action with all overrides
+    switch (actionChoice.command) {
+        case 'extension.pasteAsInStatementDirect':
+            await processAndPasteClipboardDirect(false, distinctOverride, dataTypeModeOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
+            break;
+        case 'extension.pasteAsNotInStatementDirect':
+            await processAndPasteClipboardDirect(true, distinctOverride, dataTypeModeOverride, vscode.extensions.getExtension('YakovT.Sql-in-query-statement-generator')?.exports?.context);
+            break;
+        case 'extension.pasteColumnInStatement':
+            await processColumnPaste(false, distinctOverride, dataTypeModeOverride);
+            break;
+        case 'extension.pasteColumnNotInStatement':
+            await processColumnPaste(true, distinctOverride, dataTypeModeOverride);
+            break;
+        default:
+            break;
     }
 }
 
 // Paste Column + IN/NOT IN
-async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean | undefined) {
+async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean | undefined, dataTypeModeOverride: DataTypeMode | undefined) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -375,74 +414,104 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             return;
         }
         const { hasHeaders, data, debugInfo } = detectTableData(clipboardText);
-        if (!hasHeaders || data.length <= 1) {
-            vscode.window.showWarningMessage('Clipboard data does not appear to be tabular with headers. Please copy with headers.\n' + (debugInfo || ''));
-            return;
-        }
-        const headers = data[0];
-        const columns = headers.map((header, index) => ({
-            label: header,
-            index: index
-        }));
-        const selectedColumn = await vscode.window.showQuickPick(
-            columns.map(col => col.label),
-            { placeHolder: 'Select column for IN clause' }
-        );
-        if (selectedColumn) {
-            const columnIndex = columns.find(col => col.label === selectedColumn)?.index || 0;
-            let values = data.slice(1).map(row => row[columnIndex] || '').filter(val => val !== '');
-            if (values.length === 0) {
-                vscode.window.showWarningMessage('No valid data found in selected column.');
+
+        let headers: string[] = [];
+        let dataRows: string[][];
+        let selectedColumnIndex = 0;
+
+        if (hasHeaders && data.length > 1) {
+            // Has headers - use them for column selection
+            headers = data[0];
+            dataRows = data.slice(1);
+
+            const columns = headers.map((header, index) => ({
+                label: header,
+                index: index
+            }));
+            const selectedColumn = await vscode.window.showQuickPick(
+                columns.map(col => col.label),
+                { placeHolder: 'Select column for IN clause' }
+            );
+            if (!selectedColumn) {
+                return; // User cancelled
+            }
+            selectedColumnIndex = columns.find(col => col.label === selectedColumn)?.index || 0;
+        } else {
+            // No headers detected - show informative message and treat as simple list
+            vscode.window.showInformationMessage('No column headers detected in clipboard data. You will be prompted to enter the column name manually.');
+
+            // Treat all data as simple single-column list
+            const lines = clipboardText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
+            if (lines.length === 0) {
+                vscode.window.showWarningMessage('No data found in clipboard.');
                 return;
             }
-            // Deduplication
-            const config = vscode.workspace.getConfiguration('inQueryGenerator');
-            const useDistinct = typeof distinctOverride === 'boolean'
-                ? distinctOverride
-                : config.get<boolean>('distinctValues', true);
-            const caseSensitive = config.get<boolean>('distinctCaseSensitive', false);
-            const trimWhitespace = config.get<boolean>('distinctTrimWhitespace', true);
 
-            let removed = 0;
-            if (useDistinct) {
-                const dedup = deduplicateValues(values, caseSensitive, trimWhitespace);
-                removed = dedup.removed;
-                values = dedup.unique;
-            }
-
-            // Use the header as the default column name
-            const columnNameInput = await vscode.window.showInputBox({
-                prompt: 'Enter column name to use in the IN clause (optional)',
-                placeHolder: 'e.g., customer_id',
-                value: selectedColumn
-            });
-            const inStatement = generateInStatement(values, columnNameInput || selectedColumn, forceNotIn);
-            editor.edit(editBuilder => {
-                if (editor.selection.isEmpty) {
-                    editBuilder.insert(editor.selection.active, inStatement);
-                } else {
-                    editBuilder.replace(editor.selection, inStatement);
-                }
-            });
-            // Session-based telemetry aggregation
-            if (sessionTelemetry) {
-                sessionTelemetry.total_sql_generations += 1;
-                const cmd = 'pasteColumn' + (forceNotIn ? 'NotIn' : 'In') + 'Statement';
-                sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
-                const clause = forceNotIn ? 'NOT IN' : 'IN';
-                sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
-                if (useDistinct) {
-                    sessionTelemetry.deduped_count += 1;
-                    sessionTelemetry.duplicates_removed_total += removed;
-                }
-            }
-            // (Per-action telemetry removed; now aggregated per session)
-            let msg = `${forceNotIn ? 'NOT IN' : 'IN'} statement inserted for column "${columnNameInput || selectedColumn}"!`;
-            if (useDistinct) {
-                msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
-            }
-            vscode.window.showInformationMessage(msg);
+            dataRows = lines.map(line => [line]);
+            selectedColumnIndex = 0;
         }
+
+        // Extract values from selected column
+        let values = dataRows.map(row => row[selectedColumnIndex] || '').filter(val => val !== '');
+        if (values.length === 0) {
+            vscode.window.showWarningMessage('No valid data found in selected column.');
+            return;
+        }
+
+        // Deduplication
+        const config = vscode.workspace.getConfiguration('inQueryGenerator');
+        const useDistinct = typeof distinctOverride === 'boolean'
+            ? distinctOverride
+            : config.get<boolean>('distinctValues', true);
+        const caseSensitive = config.get<boolean>('distinctCaseSensitive', false);
+        const trimWhitespace = config.get<boolean>('distinctTrimWhitespace', true);
+
+        let removed = 0;
+        if (useDistinct) {
+            const dedup = deduplicateValues(values, caseSensitive, trimWhitespace);
+            removed = dedup.removed;
+            values = dedup.unique;
+        }
+
+        // Prompt for column name (suggest detected header if available)
+        const suggestedColumnName = hasHeaders && headers ? headers[selectedColumnIndex] : '';
+        const columnNameInput = await vscode.window.showInputBox({
+            prompt: 'Enter column name to use in the IN clause (optional)',
+            placeHolder: 'e.g., customer_id',
+            value: suggestedColumnName
+        });
+
+        const inStatement = generateInStatementWithMode(values, columnNameInput || suggestedColumnName, forceNotIn, dataTypeModeOverride);
+        editor.edit(editBuilder => {
+            if (editor.selection.isEmpty) {
+                editBuilder.insert(editor.selection.active, inStatement);
+            } else {
+                editBuilder.replace(editor.selection, inStatement);
+            }
+        });
+
+        // Session-based telemetry aggregation
+        if (sessionTelemetry) {
+            sessionTelemetry.total_sql_generations += 1;
+            const cmd = 'pasteColumn' + (forceNotIn ? 'NotIn' : 'In') + 'Statement';
+            sessionTelemetry.by_command[cmd] = (sessionTelemetry.by_command[cmd] || 0) + 1;
+            const clause = forceNotIn ? 'NOT IN' : 'IN';
+            sessionTelemetry.by_clause_type[clause] = (sessionTelemetry.by_clause_type[clause] || 0) + 1;
+            if (useDistinct) {
+                sessionTelemetry.deduped_count += 1;
+                sessionTelemetry.duplicates_removed_total += removed;
+            }
+        }
+
+        // Display success message
+        let msg = `${forceNotIn ? 'NOT IN' : 'IN'} statement inserted!`;
+        if (columnNameInput || suggestedColumnName) {
+            msg = `${forceNotIn ? 'NOT IN' : 'IN'} statement inserted for column "${columnNameInput || suggestedColumnName}"!`;
+        }
+        if (useDistinct) {
+            msg += ` (${removed} duplicate${removed === 1 ? '' : 's'} removed)`;
+        }
+        vscode.window.showInformationMessage(msg);
     } catch {
         vscode.window.showErrorMessage('Error processing column paste.');
     }
@@ -687,7 +756,44 @@ async function previewAndApplyInStatement(inStatement: string, editor: vscode.Te
     }
 }
 
-import { parseText as pureParseText, formatValue as pureFormatValue, generateInStatement as pureGenerateInStatement, FormatOptions } from './pure';
+import { parseText as pureParseText, formatValue as pureFormatValue, generateInStatement as pureGenerateInStatement, FormatOptions, DataTypeMode } from './pure';
+
+/**
+ * Converts boolean detectDataTypes config to DataTypeMode enum.
+ * Provides backward compatibility with existing config.
+ */
+function getDataTypeModeFromConfig(config: vscode.WorkspaceConfiguration): DataTypeMode {
+    const detectDataTypes = config.get<boolean>('detectDataTypes', true);
+    return detectDataTypes ? DataTypeMode.Auto : DataTypeMode.ForceText;
+}
+
+/**
+ * Wrapper around pure generateInStatement that integrates config and overrides
+ */
+function generateInStatementWithMode(
+    data: string[],
+    columnName: string | undefined,
+    forceNotIn: boolean,
+    dataTypeModeOverride?: DataTypeMode
+): string {
+    const config = vscode.workspace.getConfiguration('inQueryGenerator');
+
+    const formatOptions = config.get<FormatOptions>('formatOptions', {
+        oneValuePerLine: false,
+        maxValuesPerLine: 5,
+        indentSize: 4
+    });
+
+    // Determine data type mode
+    const dataTypeMode = dataTypeModeOverride ?? getDataTypeModeFromConfig(config);
+
+    return pureGenerateInStatement(data, {
+        columnName: columnName || config.get<string>('defaultColumnName', ''),
+        useNotIn: forceNotIn,
+        dataTypeMode,
+        formatOptions
+    });
+}
 
 export function parseText(text: string): string[] {
     try {
@@ -714,7 +820,7 @@ export function generateInStatement(data: string[], columnName?: string, forceNo
     if (!columnName) {
         columnName = config.get<string>('defaultColumnName', '');
     }
-    const detectDataTypes = config.get<boolean>('detectDataTypes', true);
+    const dataTypeMode = getDataTypeModeFromConfig(config);
     const formatOptions = config.get<FormatOptions>('formatOptions', {
         oneValuePerLine: false,
         maxValuesPerLine: 5,
@@ -724,15 +830,15 @@ export function generateInStatement(data: string[], columnName?: string, forceNo
     return pureGenerateInStatement(data, {
         columnName,
         useNotIn,
-        detectDataTypes,
+        dataTypeMode,
         formatOptions
     });
 }
 
 export function formatValue(item: string): string {
     const config = vscode.workspace.getConfiguration('inQueryGenerator');
-    const detectDataTypes = config.get<boolean>('detectDataTypes', true);
-    return pureFormatValue(item, detectDataTypes);
+    const dataTypeMode = getDataTypeModeFromConfig(config);
+    return pureFormatValue(item, dataTypeMode);
 }
 
 async function trackUsageAndPromptRating(context: vscode.ExtensionContext) {

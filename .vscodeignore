@@ -5,6 +5,8 @@
 coverage/
 .nyc_output/
 .clinerules/
+.claude/
+CLAUDE.md
 .github/
 .husky/
 .vscode/

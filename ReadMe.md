@@ -10,18 +10,19 @@ SQL IN Clause Generator is a powerful extension for Azure Data Studio and VS Cod
 
 ## Feature Overview
 
-| Feature                                 | Description                                                                                  |
-|------------------------------------------|----------------------------------------------------------------------------------------------|
-| IN/NOT IN Clause Generation              | Convert selected text or clipboard content into SQL `IN`/`NOT IN` clauses                    |
-| Batch/Table Data Processing              | Select a column from tabular data (with headers) to generate an IN clause                    |
-| Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle)               |
-| Data Type Detection                      | Automatically formats numbers, dates, GUIDs, and more                                        |
-| Deduplication (Distinct)                 | Optionally remove duplicate values (configurable globally and per-use)                       |
-| Custom Formatting                        | One value per line, max values per line, indentation, and more                               |
-| Status Bar Customization                 | Quick access to extension features via a configurable status bar dropdown                    |
-| Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed                      |
-| Keyboard Shortcuts                       | Fast access to core features                                                                 |
-| Error Handling & Guidance                | User-friendly messages and tips for best results                                             |
+| Feature                                 | Description                                                                                      |
+|------------------------------------------|--------------------------------------------------------------------------------------------------|
+| IN/NOT IN Clause Generation              | Convert selected text or clipboard content into SQL `IN`/`NOT IN` clauses                        |
+| Batch/Table Data Processing              | Select a column from tabular data (with headers) to generate an IN clause                        |
+| Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle)                   |
+| Data Type Detection                      | Automatically formats numbers, dates, GUIDs, and more                                            |
+| **Data Type Override**             | Force values as text or numbers - perfect for numeric IDs that should be quoted                  |
+| Deduplication (Distinct)                 | Optionally remove duplicate values (configurable globally and per-use)                           |
+| Custom Formatting                        | One value per line, max values per line, indentation, and more                                   |
+| Status Bar Customization                 | Quick access to extension features via a configurable status bar dropdown                        |
+| Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed                          |
+| Keyboard Shortcuts                       | Fast access to core features                                                                     |
+| Error Handling & Guidance                | User-friendly messages and tips for best results                                                 |
 
 ---
 
@@ -48,20 +49,73 @@ SQL IN Clause Generator is a powerful extension for Azure Data Studio and VS Cod
 - Right-click and select **Copy as IN Statement** (or use Ctrl+Shift+I).
 - Preview the generated IN clause and choose to copy or insert it.
 
-### 3. **Paste Special In Statement**
+### 3. **Paste Special In Statement** (3-Stage Flow)
 
-- Right-click and select **Paste Special In Statement** for advanced options:
+- Right-click and select **Paste Special In Statement** (or use Ctrl+Alt+V) for advanced options with a 3-stage workflow:
+
+  **Stage 1: Deduplication Choice**
+  - Choose whether to remove duplicate values (distinct) or keep all values for this operation.
+
+  **Stage 2: Action Selection**
   - **Paste IN Statement**: Standard IN clause.
   - **Paste NOT IN Statement**: Standard NOT IN clause.
   - **Paste Column + IN Statement**: Select a column from tabular data (with headers).
   - **Paste Column + NOT IN Statement**: Same as above, but for NOT IN.
-- You will be prompted to choose whether to remove duplicates (distinct) for this operation.
+
+  **Stage 3: Data Type Override** ✨ NEW
+  - **Auto-detect (Smart)**: Default behavior - automatically detects and formats numbers, dates, GUIDs, and text appropriately.
+  - **Force Text (Quote All)**: Forces ALL values to be quoted as text - perfect for numeric IDs like `123` that should be `'123'`.
+  - **Force Number (Unquote All)**: Forces all values to be unquoted as numbers (non-numeric values are automatically quoted as fallback).
 
 ### 4. **Process Table Data as IN Statement**
 
 - Select tabular data (with headers) in your editor.
 - Right-click and select **Process Table Data as IN Statement** (or use Ctrl+Shift+B).
 - Select the column for the IN clause and optionally specify a column name.
+
+---
+
+## Data Type Override ✨ NEW in v0.14.0
+
+The Data Type Override feature gives you precise control over how values are formatted in SQL IN clauses. This is especially useful when working with numeric IDs or values that need special formatting.
+
+### Use Cases
+
+1. **Numeric IDs that should be text**: Some databases store IDs as VARCHAR even though they look like numbers (`123`, `456`). Use **Force Text** to ensure they're quoted: `IN ('123', '456', '789')`.
+
+2. **Mixed data with specific requirements**: When you have data that auto-detection doesn't handle correctly, you can override the behavior.
+
+3. **Consistency requirements**: Ensure all values follow the same formatting pattern regardless of their content.
+
+### How It Works
+
+When using **Paste Special In Statement**, you'll be prompted to choose a data type mode:
+
+- **Auto-detect (Smart)** - Default behavior:
+  - Numbers: `123` → `123` (unquoted)
+  - Dates: `2024-01-15` → `'2024-01-15'` (quoted)
+  - GUIDs: `550e8400-...` → `'550e8400-...'` (quoted)
+  - Text: `abc` → `'abc'` (quoted)
+  - NULL: `NULL` or empty → `NULL` (always unquoted)
+
+- **Force Text (Quote All)**:
+  - Everything: `123` → `'123'` (quoted)
+  - NULL still handled: `NULL` → `NULL` (unquoted)
+
+- **Force Number (Unquote All)**:
+  - Valid numbers: `123` → `123` (unquoted)
+  - Non-numeric values: `abc` → `'abc'` (automatic fallback to quoted)
+  - NULL still handled: `NULL` → `NULL` (unquoted)
+
+### Analytics & Telemetry
+
+The extension tracks usage of the Data Type Override feature (when telemetry is enabled) to help improve the feature:
+
+- Which data type modes are most commonly used
+- How the feature is accessed (Paste Special workflow)
+- Correlation with deduplication choices
+
+You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled` setting.
 
 ---
 
@@ -112,6 +166,7 @@ This extension contributes the following settings:
 
 - Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement
 - Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement
+- **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 3-stage workflow with data type override
 - Ctrl+Shift+B (Cmd+Shift+B): Process selected table data as IN statement
 
 ---
@@ -160,6 +215,30 @@ IN ('A', 'B', 'C')
 IN ('A', 'B', 'A', 'C', 'B')
 ```
 
+### Data Type Override Example ✨ NEW
+
+**Input (numeric IDs stored as VARCHAR):**
+
+```SQL
+123
+456
+789
+```
+
+**Output with Auto-detect (default):**
+
+```SQL
+IN (123, 456, 789)
+```
+
+**Output with Force Text (Quote All):**
+
+```SQL
+IN ('123', '456', '789')
+```
+
+> Perfect for numeric IDs that should be treated as text in your database!
+
 ### Column-Based Example
 
 **Input (copied with header):**
@@ -207,4 +286,23 @@ Asset_Number IN (1336, 138804, 8869)
 
 ## Changelog
 
-See the [GitHub Releases](https://github.com/yterterian/AZDataStudioExtension/releases) for version history and updates.
+### Version 0.14.0 - January 2026 ✨
+
+#### New Feature: Data Type Override
+
+- Added 3-stage workflow for Paste Special with data type control
+- Three data type modes:
+  - Auto-detect (Smart) - Intelligent detection of numbers, dates, GUIDs, and text
+  - Force Text (Quote All) - Perfect for numeric IDs that should be quoted
+  - Force Number (Unquote All) - Force numeric formatting with automatic fallback
+- NULL values always handled correctly regardless of mode
+- Enhanced telemetry to track feature usage and improve user experience
+
+#### Other Changes
+
+- Improved pure function architecture with TypeScript enum for type safety
+- Added comprehensive unit tests (51 tests passing)
+- Added exhaustive switch pattern for compile-time safety
+- Enhanced documentation with use cases and examples
+
+See the [GitHub Releases](https://github.com/yterterian/AZDataStudioExtension/releases) for complete version history.

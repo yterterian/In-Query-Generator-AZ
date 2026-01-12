@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseText, formatValue, generateInStatement, FormatOptions } from '../../pure';
+import { parseText, formatValue, generateInStatement, FormatOptions, DataTypeMode } from '../../pure';
 
 describe('Pure Function Unit Tests', () => {
     describe('parseText', () => {
@@ -29,34 +29,34 @@ describe('Pure Function Unit Tests', () => {
 
     describe('formatValue', () => {
         it('formats null and NULL as NULL', () => {
-            assert.strictEqual(formatValue('NULL', true), 'NULL');
-            assert.strictEqual(formatValue('null', true), 'NULL');
+            assert.strictEqual(formatValue('NULL', DataTypeMode.Auto), 'NULL');
+            assert.strictEqual(formatValue('null', DataTypeMode.Auto), 'NULL');
         });
 
         it('formats numbers as numbers', () => {
-            assert.strictEqual(formatValue('123', true), '123');
-            assert.strictEqual(formatValue('-123.45', true), '-123.45');
+            assert.strictEqual(formatValue('123', DataTypeMode.Auto), '123');
+            assert.strictEqual(formatValue('-123.45', DataTypeMode.Auto), '-123.45');
         });
 
         it('formats dates and timestamps', () => {
-            assert.strictEqual(formatValue('2023-01-01', true), "'2023-01-01'");
-            assert.strictEqual(formatValue('2023-01-01 12:34:56', true), "'2023-01-01 12:34:56'");
+            assert.strictEqual(formatValue('2023-01-01', DataTypeMode.Auto), "'2023-01-01'");
+            assert.strictEqual(formatValue('2023-01-01 12:34:56', DataTypeMode.Auto), "'2023-01-01 12:34:56'");
         });
 
         it('formats GUIDs', () => {
-            assert.strictEqual(formatValue('550e8400-e29b-41d4-a716-446655440000', true), "'550e8400-e29b-41d4-a716-446655440000'");
+            assert.strictEqual(formatValue('550e8400-e29b-41d4-a716-446655440000', DataTypeMode.Auto), "'550e8400-e29b-41d4-a716-446655440000'");
         });
 
         it('escapes single quotes in strings', () => {
-            assert.strictEqual(formatValue("O'Reilly", true), "'O''Reilly'");
+            assert.strictEqual(formatValue("O'Reilly", DataTypeMode.Auto), "'O''Reilly'");
         });
 
         it('formats as string if not matching any type', () => {
-            assert.strictEqual(formatValue('foo', true), "'foo'");
+            assert.strictEqual(formatValue('foo', DataTypeMode.Auto), "'foo'");
         });
 
         it('respects detectDataTypes config', () => {
-            assert.strictEqual(formatValue('2023-01-01', false), "'2023-01-01'");
+            assert.strictEqual(formatValue('2023-01-01', DataTypeMode.ForceText), "'2023-01-01'");
         });
     });
 
@@ -76,7 +76,7 @@ describe('Pure Function Unit Tests', () => {
             const expected = "IN ('value1', 'value2', NULL, 123)";
             assert.strictEqual(generateInStatement(input, {
                 useNotIn: false,
-                detectDataTypes: true,
+                dataTypeMode: DataTypeMode.Auto,
                 formatOptions: defaultFormatOptions
             }), expected);
         });
@@ -85,7 +85,7 @@ describe('Pure Function Unit Tests', () => {
             const input = ['a', 'b'];
             assert.strictEqual(generateInStatement(input, {
                 useNotIn: true,
-                detectDataTypes: true,
+                dataTypeMode: DataTypeMode.Auto,
                 formatOptions: defaultFormatOptions
             }), "NOT IN ('a', 'b')");
         });
@@ -95,7 +95,7 @@ describe('Pure Function Unit Tests', () => {
             assert.strictEqual(generateInStatement(input, {
                 columnName: 'col',
                 useNotIn: false,
-                detectDataTypes: true,
+                dataTypeMode: DataTypeMode.Auto,
                 formatOptions: defaultFormatOptions
             }), "col IN ('x', 'y')");
         });
@@ -110,7 +110,7 @@ describe('Pure Function Unit Tests', () => {
             const expected = "IN (\n  'a',\n  'b',\n  'c'\n)";
             assert.strictEqual(generateInStatement(input, {
                 useNotIn: false,
-                detectDataTypes: true,
+                dataTypeMode: DataTypeMode.Auto,
                 formatOptions
             }), expected);
         });
@@ -125,7 +125,7 @@ describe('Pure Function Unit Tests', () => {
             const expected = "IN (\n  'a', 'b',\n  'c', 'd'\n)";
             assert.strictEqual(generateInStatement(input, {
                 useNotIn: false,
-                detectDataTypes: true,
+                dataTypeMode: DataTypeMode.Auto,
                 formatOptions
             }), expected);
         });
@@ -179,43 +179,43 @@ describe('Pure Function Unit Tests', () => {
 
     describe('formatValue - edge cases', () => {
         it('formats empty string as NULL', () => {
-            assert.strictEqual(formatValue('', true), 'NULL');
+            assert.strictEqual(formatValue('', DataTypeMode.Auto), 'NULL');
         });
 
         it('formats whitespace-only as NULL', () => {
             // The function does not treat whitespace-only as NULL, only empty string or "null"
-            assert.strictEqual(formatValue('   ', true), "'   '");
+            assert.strictEqual(formatValue('   ', DataTypeMode.Auto), "'   '");
         });
 
         it('formats boolean-like strings as string', () => {
-            assert.strictEqual(formatValue('true', true), "'true'");
-            assert.strictEqual(formatValue('false', true), "'false'");
+            assert.strictEqual(formatValue('DataTypeMode.Auto', DataTypeMode.Auto), "'DataTypeMode.Auto'");
+            assert.strictEqual(formatValue('DataTypeMode.ForceText', DataTypeMode.Auto), "'DataTypeMode.ForceText'");
         });
 
         it('formats numbers with leading zeros as string', () => {
             // The function treats any number as a number, so returns "00123"
-            assert.strictEqual(formatValue('00123', true), '00123');
+            assert.strictEqual(formatValue('00123', DataTypeMode.Auto), '00123');
         });
 
         it('formats malformed date as string', () => {
             // The function matches any YYYY-MM-DD as a date, even if the month is invalid
-            assert.strictEqual(formatValue('2023-13-01', true), "'2023-13-01'");
+            assert.strictEqual(formatValue('2023-13-01', DataTypeMode.Auto), "'2023-13-01'");
         });
 
         it('formats unicode', () => {
-            assert.strictEqual(formatValue('你好', true), "'你好'");
+            assert.strictEqual(formatValue('你好', DataTypeMode.Auto), "'你好'");
         });
 
         it('formats large value', () => {
             const big = 'x'.repeat(1000);
-            assert.strictEqual(formatValue(big, true), `'${big}'`);
+            assert.strictEqual(formatValue(big, DataTypeMode.Auto), `'${big}'`);
         });
     });
 
     describe('generateInStatement - real-world and edge cases', () => {
         it('handles Excel copy-paste (tab-separated with headers)', () => {
             const input = ['ID\tName\tEmail', '1\tJohn\tjohn@test.com', '2\tJane\tjane@test.com'];
-            const parsed = input.flatMap(line => parseText(line, true));
+            const parsed = input.flatMap(line => parseText(line, false));
             const stmt = generateInStatement(parsed, {});
             assert.ok(stmt.includes("'John'"));
             assert.ok(stmt.includes("'jane@test.com'"));
@@ -282,6 +282,73 @@ describe('Pure Function Unit Tests', () => {
             const input = 'a\nb\tc\rd\n\re';
             const result = parseText(input, false);
             assert.deepStrictEqual(result, ['a', 'b', 'c', 'd', 'e']);
+        });
+    });
+
+    // --- NEW: Data Type Mode Override Tests ---
+    describe('formatValue - data type override', () => {
+        it('forces text mode: quotes numbers', () => {
+            assert.strictEqual(formatValue('123', DataTypeMode.ForceText), "'123'");
+        });
+
+        it('forces text mode: quotes dates', () => {
+            assert.strictEqual(formatValue('2024-01-01', DataTypeMode.ForceText), "'2024-01-01'");
+        });
+
+        it('forces number mode: unquotes valid numbers', () => {
+            assert.strictEqual(formatValue('123', DataTypeMode.ForceNumber), '123');
+        });
+
+        it('forces number mode: falls back to quoting text', () => {
+            assert.strictEqual(formatValue('abc', DataTypeMode.ForceNumber), "'abc'");
+        });
+
+        it('respects NULL in text mode', () => {
+            assert.strictEqual(formatValue('NULL', DataTypeMode.ForceText), 'NULL');
+        });
+
+        it('respects NULL in number mode', () => {
+            assert.strictEqual(formatValue('null', DataTypeMode.ForceNumber), 'NULL');
+        });
+
+        it('auto mode behaves as before', () => {
+            assert.strictEqual(formatValue('123', DataTypeMode.Auto), '123');
+            assert.strictEqual(formatValue('abc', DataTypeMode.Auto), "'abc'");
+        });
+    });
+
+    describe('generateInStatement - data type override', () => {
+        const formatOptions: FormatOptions = {
+            oneValuePerLine: false,
+            maxValuesPerLine: 5,
+            indentSize: 4
+        };
+
+        it('generates IN statement with text override', () => {
+            const input = ['123', '456'];
+            const result = generateInStatement(input, {
+                dataTypeMode: DataTypeMode.ForceText,
+                formatOptions
+            });
+            assert.strictEqual(result, "IN ('123', '456')");
+        });
+
+        it('generates IN statement with number override', () => {
+            const input = ['123', 'abc'];
+            const result = generateInStatement(input, {
+                dataTypeMode: DataTypeMode.ForceNumber,
+                formatOptions
+            });
+            assert.strictEqual(result, "IN (123, 'abc')");
+        });
+
+        it('generates IN statement with auto override (default)', () => {
+            const input = ['123', '2023-01-01', 'abc'];
+            const result = generateInStatement(input, {
+                dataTypeMode: DataTypeMode.Auto,
+                formatOptions
+            });
+            assert.strictEqual(result, "IN (123, '2023-01-01', 'abc')");
         });
     });
 });
