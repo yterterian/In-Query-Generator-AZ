@@ -1,4 +1,4 @@
-# SQL IN Clause Generator for Azure Data Studio & VS Code
+# SQL IN Clause Generator for VS Code (and Azure Data Studio)
 
 ![SQL IN Clause Generator Logo](images/logo.png)
 
