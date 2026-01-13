@@ -2,7 +2,7 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
@@ -12,13 +12,18 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
+    # Skip draft PRs and only run on ready PRs
+    if: github.event.pull_request.draft == false
+
+    # Optional: Additionally filter by PR author
     # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.draft == false &&
+    #   (github.event.pull_request.user.login == 'external-contributor' ||
     #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR')
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
@@ -29,9 +34,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # Full history for better context
 
       - name: Run Claude Code Review
+        continue-on-error: true
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
@@ -53,5 +59,6 @@ jobs:
 
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+          # Restricted to specific gh commands for security
+          claude_args: '--allowed-tools "Bash(gh pr comment),Bash(gh pr diff),Bash(gh pr view)"'
 
