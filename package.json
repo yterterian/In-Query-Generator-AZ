@@ -257,7 +257,7 @@
     "@supabase/supabase-js": "^2.49.8",
     "azdata": "^1.0.0",
     "g": "^2.0.1",
-    "minimatch": "^10.0.1",
+    "minimatch": "^10.2.1",
     "minimist": "^1.2.8",
     "mkdirp": "^3.0.1",
     "node-fetch": "^2.7.0",
