@@ -2,7 +2,7 @@
   "name": "sql-in-query-statement-generator",
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
-  "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for Azure Data Studio and VS Code.",
+  "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for VS Code.",
   "version": "0.14.0",
   "icon": "images/logo-icon.png",
   "engines": {
@@ -23,7 +23,6 @@
     "Excel data",
     "IN clause generator",
     "NOT IN",
-    "Azure Data Studio",
     "VS Code",
     "batch processing",
     "deduplication"
