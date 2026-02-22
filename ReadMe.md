@@ -1,10 +1,12 @@
-# SQL IN Clause Generator for VS Code (and Azure Data Studio)
+# SQL IN Clause Generator for VS Code
 
 ![SQL IN Clause Generator Logo](images/logo.png)
 
 ## Description
 
-SQL IN Clause Generator is a powerful extension for Azure Data Studio and VS Code that streamlines the creation of SQL `IN` and `NOT IN` clauses. Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. It supports smart data type detection, batch processing, deduplication, and advanced formatting, making it ideal for working with large datasets and complex queries.
+SQL IN Clause Generator is a powerful extension for VS Code that streamlines the creation of SQL `IN` and `NOT IN` clauses. Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. It supports smart data type detection, batch processing, deduplication, and advanced formatting, making it ideal for working with large datasets and complex queries.
+
+> **Note:** Azure Data Studio was retired on February 28, 2026. This extension now focuses exclusively on VS Code. Existing users can continue using the extension in VS Code with identical functionality.
 
 ---
 
@@ -28,7 +30,7 @@ SQL IN Clause Generator is a powerful extension for Azure Data Studio and VS Cod
 
 ## Installation
 
-1. Open Azure Data Studio or VS Code
+1. Open VS Code
 2. Go to the Extensions view (Ctrl+Shift+X)
 3. Search for "SQL IN Clause Generator"
 4. Click Install
