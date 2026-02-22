@@ -102,13 +102,13 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   }
 
   private getAppVersion(): string {
-    // Try to detect Azure Data Studio version, else fallback to VS Code version
+    // Detect app version (VS Code or legacy Azure Data Studio)
     const appName = vscode.env.appName || '';
     if (appName.toLowerCase().includes('azure data studio')) {
-      // Try to get from process.env or fallback to version in title
+      // Legacy: Azure Data Studio retired Feb 28, 2026
       const envVer = process.env['AZURE_DATA_STUDIO_VERSION'];
       if (envVer) return envVer;
-      // Try to parse from appName (e.g., "Azure Data Studio - 1.100.2")
+      // Parse from appName (e.g., "Azure Data Studio - 1.100.2")
       const match = appName.match(/(\d+\.\d+\.\d+)/);
       if (match) return match[1];
       return 'AzureDataStudio';
