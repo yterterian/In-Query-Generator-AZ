@@ -1,0 +1,11 @@
+Test baseline before azdata removal
+      ✔ generates IN statement with auto override (default)
+
+
+  51 passing (7ms)
+
+      ✔ should handle numbers with thousand separators
+
+
+  16 passing (3ms)
+
