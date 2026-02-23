@@ -9,3 +9,4 @@ Test baseline before azdata removal
 
   16 passing (3ms)
 
+14 high severity vulnerabilities
