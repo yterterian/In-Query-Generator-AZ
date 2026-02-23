@@ -6,7 +6,8 @@
   "version": "0.15.0",
   "icon": "images/logo-icon.png",
   "engines": {
-    "vscode": "^1.50.0"
+    "vscode": "^1.50.0",
+    "node": ">=20.0.0"
   },
   "categories": [
     "Other",
