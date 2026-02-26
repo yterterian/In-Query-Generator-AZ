@@ -1,20 +1,54 @@
-# Exclude sensitive and development files from VSIX package
+# Source files (bundled into out/extension.js by esbuild)
+src/**
+typings/**
 
-.env
-.gitignore
+# Build tooling
+tsconfig.json
+esbuild.js
+eslint.config.js
+.nycrc.json
+
+# Coverage scripts and output
+.coverage/**
+direct-coverage.js
+simple-coverage.js
+run-istanbul.js
+vscode-coverage.js
+vscode-ext-coverage.js
 coverage/
 .nyc_output/
-.clinerules/
-.claude/
-CLAUDE.md
-.github/
+
+# Dependencies (bundled by esbuild, not needed at runtime)
+node_modules/**
+
+# Development and CI
+.github/**
 .husky/
 .vscode/
-test/
-tests/
+.claude/
+.clinerules/
+
+# Git and environment
+.gitignore
+.env
+
+# Misc
 *.log
 *.nyc_output
-*.nycrc.json
 bfg-1.14.0.jar
 __azurite_db_queue__.json
 __azurite_db_queue_extent__.json
+CLAUDE.md
+
+# Package lock (not needed in extension)
+package-lock.json
+
+# Stale tsc output (esbuild bundles everything into out/extension.js)
+out/pure.js
+out/pure.js.map
+out/telemetry/**
+out/utils/**
+out/test/**
+
+# Source maps (not needed in production package)
+out/**/*.map
