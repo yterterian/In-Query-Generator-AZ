@@ -257,7 +257,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
-    "minimatch": "^10.2.1",
+    "minimatch": "^10.2.4",
     "minimist": "^1.2.8",
     "mkdirp": "^3.0.1",
     "node-fetch": "^2.7.0",
