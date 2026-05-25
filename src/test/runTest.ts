@@ -10,23 +10,26 @@ function resolveVSCodeExecutablePath(): string | undefined {
         return envPath;
     }
 
-    const candidates = process.platform === 'darwin'
-        ? [
+    let candidates: string[] = [];
+
+    if (process.platform === 'darwin') {
+        candidates = [
             '/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
             '/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Electron'
-        ]
-        : process.platform === 'linux'
-            ? [
-                '/usr/share/code/code',
-                '/usr/bin/code',
-                '/snap/bin/code'
-            ]
-            : process.platform === 'win32'
-                ? [
-                    'C:\\Program Files\\Microsoft VS Code\\Code.exe',
-                    'C:\\Users\\runneradmin\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe'
-                ]
-                : [];
+        ];
+    } else if (process.platform === 'linux') {
+        candidates = [
+            '/usr/share/code/code',
+            '/usr/bin/code',
+            '/snap/bin/code'
+        ];
+    } else if (process.platform === 'win32') {
+        candidates = [
+            'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+            process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe') : '',
+            process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'Code.exe') : ''
+        ].filter((candidate): candidate is string => candidate.length > 0);
+    }
 
     return candidates.find(candidate => fs.existsSync(candidate));
 }
