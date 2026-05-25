@@ -26,9 +26,8 @@ function resolveVSCodeExecutablePath(): string | undefined {
     } else if (process.platform === 'win32') {
         candidates = [
             'C:\\Program Files\\Microsoft VS Code\\Code.exe',
-            process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe') : '',
-            process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'Microsoft VS Code', 'Code.exe') : ''
-        ].filter((candidate): candidate is string => candidate.length > 0);
+            process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs', 'Microsoft VS Code', 'Code.exe') : ''
+        ].filter((candidate): candidate is string => Boolean(candidate));
     }
 
     return candidates.find(candidate => fs.existsSync(candidate));
