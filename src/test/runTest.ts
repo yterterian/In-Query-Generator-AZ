@@ -4,6 +4,33 @@ import * as fs from 'fs';
 import * as process from 'process';
 import { runTests } from '@vscode/test-electron';
 
+function resolveVSCodeExecutablePath(): string | undefined {
+    const envPath = process.env.VSCODE_EXECUTABLE_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+        return envPath;
+    }
+
+    const candidates = process.platform === 'darwin'
+        ? [
+            '/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
+            '/Applications/Visual Studio Code - Insiders.app/Contents/MacOS/Electron'
+        ]
+        : process.platform === 'linux'
+            ? [
+                '/usr/share/code/code',
+                '/usr/bin/code',
+                '/snap/bin/code'
+            ]
+            : process.platform === 'win32'
+                ? [
+                    'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+                    'C:\\Users\\runneradmin\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe'
+                ]
+                : [];
+
+    return candidates.find(candidate => fs.existsSync(candidate));
+}
+
 async function main() {
     try {
         // The folder containing the Extension Manifest package.json
@@ -15,6 +42,10 @@ async function main() {
         console.log('Running extension tests with the following paths:');
         console.log(`- Extension path: ${extensionDevelopmentPath}`);
         console.log(`- Tests path: ${extensionTestsPath}`);
+        const vscodeExecutablePath = resolveVSCodeExecutablePath();
+        if (vscodeExecutablePath) {
+            console.log(`- VS Code executable: ${vscodeExecutablePath}`);
+        }
         
         // Initialize environment variables for the extension host
         const testEnv = { ...process.env };
@@ -37,8 +68,9 @@ async function main() {
             });
         }
 
-        // Download VS Code, unzip it and run the integration test
+        // Use an existing VS Code install when available, otherwise download it and run the integration test
         await runTests({
+            vscodeExecutablePath,
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: [
