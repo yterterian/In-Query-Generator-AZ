@@ -2,7 +2,7 @@
  * Supabase-based telemetry collector for SQL IN Clause Generator
  * Minimal, privacy-first, async, and non-blocking.
  */
-import { TelemetryEvent, TelemetryCollector } from './types';
+import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
 import * as vscode from 'vscode';
 
 const SUPABASE_URL = 'https://yomxzbdletcfnjsrlnsk.supabase.co'; 
@@ -41,7 +41,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
 
   async logEvent(
     eventName: string,
-    properties?: Record<string, string | number | boolean>,
+    properties?: Record<string, TelemetryScalar>,
     measurements?: Record<string, number>
   ): Promise<void> {
     if (!isTelemetryEnabled()) return;
@@ -116,7 +116,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
     return vscode.version;
   }
 
-  async logError(error: Error, context?: string, properties?: Record<string, string | number | boolean>): Promise<void> {
+  async logError(error: Error, context?: string, properties?: Record<string, TelemetryScalar>): Promise<void> {
     await this.logEvent('error', {
       ...properties,
       error_message: error.message,
@@ -130,7 +130,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
     const eventsToSend = this.queue.splice(0, this.batchSize);
     try {
       const client = await getSupabaseClient();
-      const { data, error, status } = await client.from('extension_telemetry').insert(eventsToSend);
+      const { error, status } = await client.from('extension_telemetry').insert(eventsToSend);
       if (error) {
         telemetryOutputChannel.appendLine(`[Telemetry] Supabase error: ${error.message} (status: ${status})`);
         telemetryOutputChannel.show(true);

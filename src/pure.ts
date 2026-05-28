@@ -21,11 +21,91 @@ export enum DataTypeMode {
     ForceNumber = 'force_number'
 }
 
+const SQL_IDENTIFIER_PART = '(?:\\[[^\\]]+\\]|"[^"]+"|`[^`]+`|[A-Za-z_][\\w$]*)';
+const SQL_IDENTIFIER_PATH = `${SQL_IDENTIFIER_PART}(?:\\s*\\.\\s*${SQL_IDENTIFIER_PART})*`;
+const SQL_IN_CLAUSE_PREFIX = new RegExp(`^(?:${SQL_IDENTIFIER_PATH}\\s+)?(?:NOT\\s+)?IN\\s*\\(`, 'i');
+
+function looksLikeSqlInClause(text: string): boolean {
+    return SQL_IN_CLAUSE_PREFIX.test(text.trim());
+}
+
+function parseSqlValueList(text: string): string[] | null {
+    const trimmed = text.trim();
+    const clauseMatch = trimmed.match(new RegExp(`^(?:${SQL_IDENTIFIER_PATH}\\s+)?(?:NOT\\s+)?IN\\s*\\(([\\s\\S]*)\\)\\s*;?\\s*$`, 'i'));
+    if (!clauseMatch) {
+        if (looksLikeSqlInClause(trimmed)) {
+            throw new Error('Malformed SQL IN clause.');
+        }
+        return null;
+    }
+
+    const values = clauseMatch[1];
+    if (values.trim() === '') {
+        return [];
+    }
+
+    const parsed: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let index = 0; index < values.length; index++) {
+        const char = values[index];
+        const nextChar = values[index + 1];
+
+        if (char === '\'') {
+            current += char;
+            if (inQuotes && nextChar === '\'') {
+                current += nextChar;
+                index++;
+                continue;
+            }
+
+            inQuotes = !inQuotes;
+            continue;
+        }
+
+        if (char === ',' && !inQuotes) {
+            parsed.push(current);
+            current = '';
+            continue;
+        }
+
+        current += char;
+    }
+
+    parsed.push(current);
+
+    if (inQuotes) {
+        throw new Error('Malformed SQL IN clause.');
+    }
+
+    return parsed
+        .map(token => token.trim())
+        .map(token => {
+            if (/^null$/i.test(token)) {
+                return 'NULL';
+            }
+
+            if (token.startsWith('\'') && token.endsWith('\'')) {
+                return token.slice(1, -1).replace(/''/g, '\'');
+            }
+
+            return token;
+        });
+}
+
 export function parseText(
     text: string,
     splitOnWhitespace: boolean = false
 ): string[] {
-    text = text.replace(/^(NOT\s+)?IN\s*\(\s*'/i, '').replace(/'\s*\)$/, '');
+    if (text.trim() === '') {
+        return [];
+    }
+
+    const sqlValues = parseSqlValueList(text);
+    if (sqlValues !== null) {
+        return sqlValues;
+    }
 
     let result: string[];
 
@@ -34,12 +114,12 @@ export function parseText(
             .map(item => item.trim())
             .filter(item => item !== '');
     } else {
-        // Split first by any newline or carriage return, then flatten by splitting each line by tabs or commas
-        result = text
-            .split(/[\r\n]+/)
+        // Preserve empty items created by delimiters so the original list stays traceable.
+        const trimmedBoundaryText = text.replace(/^[\r\n]+|[\r\n]+$/g, '');
+        result = trimmedBoundaryText
+            .split(/\r\n|\n|\r/)
             .flatMap(line => line.split(/\t|,/))
-            .map(item => item.trim())
-            .filter(item => item !== '');
+            .map(item => item.trim());
     }
 
     return result;
@@ -52,18 +132,62 @@ function isNumeric(value: string): boolean {
     return /^-?\d+(\.\d+)?$/.test(value);
 }
 
+function hasLeadingZeroInteger(value: string): boolean {
+    return /^-?0\d+$/.test(value);
+}
+
+function isValidDateParts(year: number, month: number, day: number): boolean {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+        return false;
+    }
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+        return false;
+    }
+
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    return candidate.getUTCFullYear() === year
+        && candidate.getUTCMonth() === month - 1
+        && candidate.getUTCDate() === day;
+}
+
+function isValidTimeParts(hour: number, minute: number, second: number): boolean {
+    return Number.isInteger(hour)
+        && Number.isInteger(minute)
+        && Number.isInteger(second)
+        && hour >= 0
+        && hour <= 23
+        && minute >= 0
+        && minute <= 59
+        && second >= 0
+        && second <= 59;
+}
+
 /**
  * Type guard: checks if a string is a date
  */
 function isDate(value: string): boolean {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+        return false;
+    }
+
+    const [, year, month, day] = match;
+    return isValidDateParts(Number(year), Number(month), Number(day));
 }
 
 /**
  * Type guard: checks if a string is a datetime
  */
 function isDateTime(value: string): boolean {
-    return /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/.test(value);
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+    if (!match) {
+        return false;
+    }
+
+    const [, year, month, day, hour, minute, second] = match;
+    return isValidDateParts(Number(year), Number(month), Number(day))
+        && isValidTimeParts(Number(hour), Number(minute), Number(second));
 }
 
 /**
@@ -103,7 +227,7 @@ function tryFormatAsNumber(value: string): string {
  */
 function formatAutoDetect(value: string): string {
     // Numbers stay unquoted
-    if (isNumeric(value)) {
+    if (isNumeric(value) && !hasLeadingZeroInteger(value)) {
         return value;
     }
 
@@ -132,21 +256,23 @@ export function formatValue(
     item: string,
     dataTypeMode: DataTypeMode = DataTypeMode.Auto
 ): string {
+    const trimmedItem = item.trim();
+
     // NULL handling is universal - always takes precedence
-    if (!item || item.toLowerCase() === 'null') {
+    if (!trimmedItem || trimmedItem.toLowerCase() === 'null') {
         return 'NULL';
     }
 
     // Apply formatting strategy based on mode
     switch (dataTypeMode) {
         case DataTypeMode.Auto:
-            return formatAutoDetect(item);
+            return formatAutoDetect(trimmedItem);
 
         case DataTypeMode.ForceText:
             return formatAsText(item);
 
         case DataTypeMode.ForceNumber:
-            return tryFormatAsNumber(item);
+            return tryFormatAsNumber(trimmedItem);
 
         default: {
             // Exhaustive check - TypeScript will error if we miss a case
