@@ -227,7 +227,7 @@
     "test": "node ./out/test/runTest.js",
     "coverage": "c8 --reporter=html --reporter=text npm test",
     "pretest:pure": "npm run compile",
-    "test:pure": "mocha out/test/suite/pure.test.js out/test/suite/inputPreparation.test.js",
+    "test:pure": "mocha out/test/suite/pure.test.js out/test/suite/inputPreparation.test.js out/test/suite/telemetry.test.js",
     "coverage:pure": "c8 --reporter=html --reporter=text npm run test:pure",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",

@@ -25,9 +25,9 @@ Current local status after the completed v0.16 hardening slices:
 - `npm run test:csv` passes
 - `npm run lint` passes
 - `npm test` passes on Windows
-- `npm run test:pure` currently reports 67 passing tests
+- `npm run test:pure` currently reports 72 passing tests
 - `npm run test:csv` currently reports 18 passing tests
-- `npm test` currently reports 94 passing tests
+- `npm test` currently reports 99 passing tests
 
 ## Progress Snapshot
 
@@ -40,7 +40,7 @@ Current local status after the completed v0.16 hardening slices:
 - dependency reduction slice
 - warning clean-up for direct Mocha runs and VS Code host noise
 
-### Parked
+### In Progress
 
 - Phase 5: telemetry and privacy alignment
 
@@ -191,7 +191,7 @@ The immediate goal is to make the current extension reliable enough that future 
 
 **Objective:** make the implementation defensible against the repo’s own privacy statement.
 
-**Status:** parked by choice
+**Status:** in progress
 
 ### Tasks
 
@@ -213,7 +213,7 @@ The immediate goal is to make the current extension reliable enough that future 
 
 ### Note
 
-- This phase remains intentionally parked for now. The branch has been hardened far enough that telemetry work can be tackled later as a discrete slice instead of being mixed into the host and test refactor.
+- This phase has now been reopened after the host-hardening commit so the telemetry and privacy work can land as its own bounded slice.
 
 ## Phase 6: Product Expansion From A Stronger Base
 

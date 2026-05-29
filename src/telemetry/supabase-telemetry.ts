@@ -3,9 +3,11 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
+import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
 import * as vscode from 'vscode';
 
-const SUPABASE_URL = 'https://yomxzbdletcfnjsrlnsk.supabase.co'; 
+const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
+const SUPABASE_URL = 'https://yomxzbdletcfnjsrlnsk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbXh6YmRsZXRjZm5qc3JsbnNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NTcwNDUsImV4cCI6MjA2NDEzMzA0NX0.gTrhsdftNEMFIwVz8sD4xwM05iGVqeLZjgC_cifZrj4';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -47,22 +49,16 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
     if (!isTelemetryEnabled()) return;
 
     const event: TelemetryEvent = {
-      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+      id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
       event_name: eventName,
-      timestamp: this.getSydneyTimestamp(),
+      timestamp: formatSydneyTimestamp(),
       session_id: vscode.env.sessionId || '',
       user_id: this.getAnonymousUserId(),
-      extension_version: vscode.extensions.getExtension('YakovT.sql-in-query-statement-generator')?.packageJSON.version || 'unknown',
+      extension_version: vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version || 'unknown',
       vscode_version: this.getAppVersion(),
       platform: process.platform,
       properties,
-      measurements,
-      context: {
-        os: process.platform,
-        trigger: properties?.trigger,
-        editor: vscode.env.appName,
-        sydney_offset: '+10:00'
-      }
+      measurements
     };
 
     this.queue.push(event);
@@ -73,32 +69,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
 
   // --- Helper methods moved to class scope ---
   private getAnonymousUserId(): string {
-    // Use a stable, privacy-preserving hash of machineId + extension ID
-    const base = vscode.env.machineId + ':YakovT.sql-in-query-statement-generator';
-    // Simple hash: base64 of UTF-8 bytes, truncated for brevity
-    return Buffer.from(base, 'utf8').toString('base64').substr(0, 24);
-  }
-
-  private getSydneyTimestamp(): string {
-    // Use Intl.DateTimeFormat to get Sydney time, then format as ISO string
-    const now = new Date();
-    const sydneyTime = new Intl.DateTimeFormat('en-AU', {
-      timeZone: 'Australia/Sydney',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).formatToParts(now);
-
-    // Build ISO string in Sydney time
-    const dateParts: Record<string, string> = {};
-    sydneyTime.forEach(part => {
-      if (part.type !== 'literal') dateParts[part.type] = part.value;
-    });
-    // Format: YYYY-MM-DDTHH:mm:ss+10:00
-    return `${dateParts.year}-${dateParts.month}-${dateParts.day}T${dateParts.hour}:${dateParts.minute}:${dateParts.second}+10:00`;
+    return hashAnonymousUserId(vscode.env.machineId, EXTENSION_ID);
   }
 
   private getAppVersion(): string {
@@ -119,9 +90,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   async logError(error: Error, context?: string, properties?: Record<string, TelemetryScalar>): Promise<void> {
     await this.logEvent('error', {
       ...properties,
-      error_message: error.message,
-      error_stack: error.stack || '',
-      error_context: context || '',
+      ...buildSafeErrorProperties(error, context)
     });
   }
 

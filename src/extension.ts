@@ -23,6 +23,7 @@ import {
     recordSessionSqlGeneration,
     SessionTelemetryState
 } from './commandEffects';
+import { getDurationSeconds } from './telemetry/privacy';
 import { trackUsageAndPromptRating } from './ratingPrompt';
 import { createStatusBarItem, updateStatusBarItem } from './statusBarManager';
 
@@ -526,11 +527,9 @@ export async function deactivate() {
     // Send session-based telemetry if there was any SQL generation activity
     if (telemetryCollector && sessionTelemetry && sessionTelemetry.total_sql_generations > 0) {
         sessionTelemetry.end_time = new Date().toISOString();
+        const sessionDurationSeconds = getDurationSeconds(sessionTelemetry.start_time, new Date(sessionTelemetry.end_time));
         // Flatten nested objects for telemetry
         const flatSession: Record<string, string | number | boolean> = {
-            session_id: sessionTelemetry.session_id,
-            start_time: sessionTelemetry.start_time,
-            end_time: sessionTelemetry.end_time || '',
             total_sql_generations: sessionTelemetry.total_sql_generations,
             by_command: JSON.stringify(sessionTelemetry.by_command),
             by_clause_type: JSON.stringify(sessionTelemetry.by_clause_type),
@@ -538,6 +537,9 @@ export async function deactivate() {
             duplicates_removed_total: sessionTelemetry.duplicates_removed_total,
             error_count: sessionTelemetry.error_count
         };
+        if (typeof sessionDurationSeconds === 'number') {
+            flatSession.session_duration_seconds = sessionDurationSeconds;
+        }
         await telemetryCollector.logEvent('session_sql_utilization', flatSession);
     }
     if (telemetryCollector) {
