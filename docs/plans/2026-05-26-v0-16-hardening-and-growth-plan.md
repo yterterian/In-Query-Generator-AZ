@@ -40,7 +40,7 @@ Current local status after the completed v0.16 hardening slices:
 - dependency reduction slice
 - warning clean-up for direct Mocha runs and VS Code host noise
 
-### In Progress
+### Completed
 
 - Phase 5: telemetry and privacy alignment
 
@@ -191,7 +191,7 @@ The immediate goal is to make the current extension reliable enough that future 
 
 **Objective:** make the implementation defensible against the repo’s own privacy statement.
 
-**Status:** in progress
+**Status:** completed
 
 ### Tasks
 
@@ -211,9 +211,13 @@ The immediate goal is to make the current extension reliable enough that future 
 - The docs and implementation no longer contradict each other
 - Telemetry is minimal, deliberate and explainable
 
-### Note
+### Outcome
 
-- This phase has now been reopened after the host-hardening commit so the telemetry and privacy work can land as its own bounded slice.
+- Telemetry now uses a real one-way hash for anonymous installation identifiers.
+- Sydney timestamps now respect daylight saving time.
+- Error telemetry is limited to classification fields rather than raw messages or stacks.
+- Session telemetry now prefers aggregate duration over raw session timestamps.
+- `docs/PrivacyStatement.md` has been rewritten to match the actual implementation rather than aspirational backend guarantees.
 
 ## Phase 6: Product Expansion From A Stronger Base
 

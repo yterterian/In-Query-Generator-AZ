@@ -10,6 +10,16 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 
 ---
 
+## What's New In v0.16.0
+
+- Harder-to-break parsing for pasted SQL `IN (...)` and `NOT IN (...)` fragments, quoted values, leading-zero IDs, and mixed copied data.
+- More conservative table and header detection so copied result sets are less likely to lose the first real value.
+- Refactored extension-host workflow with better helper-module coverage and stronger Windows test reliability.
+- Telemetry and privacy behaviour now align more closely: hashed anonymous identifiers, DST-correct Sydney timestamps, and no raw error messages or stacks in telemetry payloads.
+- Local packaging verified as `0.16.0` for VS Code testing.
+
+---
+
 ## Feature Overview
 
 | Feature                                 | Description                                                                                      |
@@ -77,7 +87,7 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 
 ---
 
-## Data Type Override ✨ NEW in v0.14.0
+## Data Type Override ✨ Introduced in v0.14.0
 
 The Data Type Override feature gives you precise control over how values are formatted in SQL IN clauses. This is especially useful when working with numeric IDs or values that need special formatting.
 
@@ -111,13 +121,15 @@ When using **Paste Special In Statement**, you'll be prompted to choose a data t
 
 ### Analytics & Telemetry
 
-The extension tracks usage of the Data Type Override feature (when telemetry is enabled) to help improve the feature:
+When telemetry is enabled, the extension records limited aggregate usage around this workflow:
 
-- Which data type modes are most commonly used
-- How the feature is accessed (Paste Special workflow)
-- Correlation with deduplication choices
+- Which data type modes are selected
+- Whether the feature was accessed through the Paste Special workflow
+- How often deduplication is used alongside the feature
 
-You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled` setting.
+It does not send SQL values, clipboard contents, file names, workspace identifiers, raw error messages, or raw error stacks.
+
+You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`.
 
 ---
 
@@ -282,11 +294,33 @@ Asset_Number IN (1336, 138804, 8869)
 
 - All features and configuration options are documented in this ReadMe and in the extension's settings UI.
 - For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/AZDataStudioExtension/issues).
-- 📄 **[Privacy Statement](https://github.com/yterterian/In-Query-Generator-AZ/blob/main/docs/PrivacyStatement.md)** — Learn what data we collect, what we don’t, and how you can control your privacy.
+- 📄 **[Privacy Statement](docs/PrivacyStatement.md)** — Learn what data we collect, what we don’t, and how you can control your privacy.
 
 ---
 
 ## Changelog
+
+### Version 0.16.0 - May 2026
+
+#### Hardening And Reliability
+
+- Repaired the Windows extension-host test runner and made the local quality gate reliable.
+- Removed duplicate legacy coverage helper scripts and simplified the supported test path.
+- Reduced direct dependencies by removing unused legacy packages.
+
+#### SQL And Clipboard Handling
+
+- Hardened parsing for pasted SQL `IN (...)` and `NOT IN (...)` fragments, including quoted values, escaped quotes and bracketed identifiers.
+- Preserved blank positions more faithfully in copied lists instead of silently collapsing them.
+- Improved handling for leading-zero IDs so auto-detection does not misclassify them as numeric.
+- Tightened table and header inference for copied tabular data, especially where the first row is real data rather than a header.
+
+#### Privacy And Telemetry
+
+- Replaced the previous weak anonymous identifier approach with a one-way hash.
+- Corrected Sydney timestamp handling for daylight saving time.
+- Reduced telemetry detail so raw error messages and stacks are not sent.
+- Updated the privacy statement to match the implementation.
 
 ### Version 0.14.0 - January 2026 ✨
 
