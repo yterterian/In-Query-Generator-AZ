@@ -56,7 +56,7 @@ describe('CSV Parser Tests', () => {
         it('should detect single column data', () => {
             const text = 'Value 1\nValue 2\nValue 3';
             const result = detectAndParseTableData(text);
-            assert.strictEqual(result.hasHeaders, true);
+            assert.strictEqual(result.hasHeaders, false);
             assert.strictEqual(result.data.length, 3);
             assert.strictEqual(result.data[0].length, 1);
         });
@@ -73,10 +73,26 @@ describe('CSV Parser Tests', () => {
         it('should handle single column with embedded commas', () => {
             const text = '"Smith, John"\n"Doe, Jane"\n"Brown, Bob"';
             const result = detectAndParseTableData(text);
-            assert.strictEqual(result.hasHeaders, true);
+            assert.strictEqual(result.hasHeaders, false);
             assert.strictEqual(result.data.length, 3);
             assert.strictEqual(result.data[0].length, 1);
             assert.strictEqual(result.data[0][0], 'Smith, John');
+        });
+
+        it('should not assume headers for multi-column rows without clear labels', () => {
+            const text = '1\tJohn\n2\tJane';
+            const result = detectAndParseTableData(text);
+            assert.strictEqual(result.hasHeaders, false);
+            assert.strictEqual(result.data.length, 2);
+            assert.deepStrictEqual(result.data[0], ['1', 'John']);
+        });
+
+        it('should infer headers for labelled multi-column data', () => {
+            const text = 'Customer ID\tCustomer Name\n123\tAlice\n456\tBob';
+            const result = detectAndParseTableData(text);
+            assert.strictEqual(result.hasHeaders, true);
+            assert.strictEqual(result.data.length, 3);
+            assert.deepStrictEqual(result.data[0], ['Customer ID', 'Customer Name']);
         });
     });
 
@@ -119,7 +135,7 @@ describe('CSV Parser Tests', () => {
         it('should handle numbers with thousand separators', () => {
             const text = '"1,234,567"\n"2,345,678"\n"3,456,789"';
             const result = detectAndParseTableData(text);
-            assert.strictEqual(result.hasHeaders, true);
+            assert.strictEqual(result.hasHeaders, false);
             assert.strictEqual(result.data.length, 3);
             assert.strictEqual(result.data[0][0], '1,234,567');
         });

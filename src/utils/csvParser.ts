@@ -17,6 +17,145 @@ export interface DelimiterAnalysis {
     consistentColumnCount: boolean;
 }
 
+type CellValueType = 'empty' | 'numeric' | 'date' | 'guid' | 'text';
+
+const COMMON_HEADER_LABELS = new Set([
+    'id',
+    'name',
+    'age',
+    'email',
+    'date',
+    'datetime',
+    'timestamp',
+    'status',
+    'type',
+    'code',
+    'description',
+    'category',
+    'amount',
+    'value',
+    'price',
+    'quantity',
+    'count',
+    'number',
+    'phone',
+    'city',
+    'state',
+    'country',
+    'postcode',
+    'zip',
+    'customer',
+    'customer id',
+    'customer name',
+    'product',
+    'product id',
+    'product name',
+    'first name',
+    'last name'
+]);
+
+function normaliseHeaderLabel(value: string): string {
+    return value
+        .trim()
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+}
+
+function classifyCellValue(value: string): CellValueType {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+        return 'empty';
+    }
+
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+        return 'numeric';
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$/.test(trimmed)) {
+        return 'date';
+    }
+
+    if (/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(trimmed)) {
+        return 'guid';
+    }
+
+    return 'text';
+}
+
+function inferHeaderRow(parsedData: string[][]): boolean {
+    if (parsedData.length < 2 || parsedData[0].length < 2) {
+        return false;
+    }
+
+    const [firstRow, ...dataRows] = parsedData;
+    if (firstRow.some(cell => cell.trim() === '')) {
+        return false;
+    }
+
+    let evidenceColumns = 0;
+
+    for (let columnIndex = 0; columnIndex < firstRow.length; columnIndex++) {
+        const firstValue = firstRow[columnIndex]?.trim() ?? '';
+        const laterValues = dataRows
+            .map(row => (row[columnIndex] ?? '').trim())
+            .filter(value => value !== '');
+
+        if (laterValues.length === 0) {
+            continue;
+        }
+
+        const repeatedFirstValue = laterValues.some(
+            value => value.toLowerCase() === firstValue.toLowerCase()
+        );
+        if (repeatedFirstValue) {
+            continue;
+        }
+
+        const laterTypes = laterValues.map(classifyCellValue);
+        const structuredLaterRatio = laterTypes.filter(type => type !== 'text').length / laterTypes.length;
+
+        if (COMMON_HEADER_LABELS.has(normaliseHeaderLabel(firstValue))) {
+            evidenceColumns++;
+            continue;
+        }
+
+        if (classifyCellValue(firstValue) === 'text' && structuredLaterRatio >= 0.6) {
+            evidenceColumns++;
+        }
+    }
+
+    return evidenceColumns >= Math.max(2, Math.ceil(firstRow.length / 2));
+}
+
+function inferSingleColumnHeader(values: string[]): boolean {
+    if (values.length < 2) {
+        return false;
+    }
+
+    const [firstValue, ...laterValues] = values.map(value => value.trim());
+    if (firstValue === '') {
+        return false;
+    }
+
+    if (COMMON_HEADER_LABELS.has(normaliseHeaderLabel(firstValue))) {
+        return true;
+    }
+
+    const laterTypes = laterValues
+        .map(classifyCellValue)
+        .filter(type => type !== 'empty');
+
+    if (laterTypes.length === 0) {
+        return false;
+    }
+
+    const structuredLaterRatio = laterTypes.filter(type => type !== 'text').length / laterTypes.length;
+    return classifyCellValue(firstValue) === 'text' && structuredLaterRatio >= 0.8;
+}
+
 /**
  * Parse a single CSV line with proper quote and escape handling
  */
@@ -151,10 +290,11 @@ export function detectAndParseTableData(text: string): ParsedTableData {
     const delimiterAnalyses = analyseDelimiters(lines);
     
     if (delimiterAnalyses.length === 0) {
+        const singleColumnValues = lines.map(line => parseCsvLine(line, ',')[0]);
         // No delimiters found - treat as single column
         return {
-            hasHeaders: true,
-            data: lines.map(line => [parseCsvLine(line, ',')[0]]),
+            hasHeaders: inferSingleColumnHeader(singleColumnValues),
+            data: singleColumnValues.map(value => [value]),
             delimiter: '',
             debugInfo: 'Single column data detected'
         };
@@ -189,7 +329,7 @@ export function detectAndParseTableData(text: string): ParsedTableData {
     }
 
     return {
-        hasHeaders: true,
+        hasHeaders: inferHeaderRow(parsedData),
         data: parsedData,
         delimiter: bestDelimiter.delimiter,
         debugInfo: `Detected ${mostCommonColumnCount} columns with delimiter '${bestDelimiter.delimiter}' (confidence: ${bestDelimiter.confidence.toFixed(1)})`

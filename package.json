@@ -3,7 +3,7 @@
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
   "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for VS Code.",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.50.0",
@@ -226,12 +226,14 @@
     "package": "vsce package",
     "test": "node ./out/test/runTest.js",
     "coverage": "c8 --reporter=html --reporter=text npm test",
-    "test:pure": "mocha -r ts-node/register src/test/suite/pure.test.ts",
+    "pretest:pure": "npm run compile",
+    "test:pure": "mocha out/test/suite/pure.test.js out/test/suite/inputPreparation.test.js out/test/suite/telemetry.test.js",
     "coverage:pure": "c8 --reporter=html --reporter=text npm run test:pure",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "pretest": "npm run compile",
-    "test:csv": "mocha -r ts-node/register src/test/suite/csvParser.test.ts"
+    "pretest:csv": "npm run compile",
+    "test:csv": "mocha out/test/suite/csvParser.test.js"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -241,27 +243,20 @@
     "@typescript-eslint/eslint-plugin": "^8.33.0",
     "@typescript-eslint/parser": "^8.33.0",
     "@vscode/test-electron": "^2.3.0",
-    "@vscode/vsce": "^2.32.0",
+    "@vscode/vsce": "^3.9.2",
     "c8": "^10.1.3",
-    "cross-env": "^7.0.3",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.28.1",
     "eslint": "^9.27.0",
     "glob": "^10.5.0",
     "husky": "^9.1.7",
-    "istanbul-lib-coverage": "^3.2.2",
     "lint-staged": "^15.5.2",
     "mocha": "^10.2.0",
-    "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "typescript": "^4.0.3"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
-    "minimatch": "^10.2.4",
-    "minimist": "^1.2.8",
-    "mkdirp": "^3.0.1",
-    "node-fetch": "^2.7.0",
-    "uuid": "^14.0.0"
+    "node-fetch": "^2.7.0"
   },
   "lint-staged": {
     "*.ts": [

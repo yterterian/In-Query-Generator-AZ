@@ -136,12 +136,47 @@ describe('Pure Function Unit Tests', () => {
     describe('parseText - edge cases', () => {
         it('removes IN(...) wrapper', () => {
             const input = "IN ('a','b','c')";
-            assert.deepStrictEqual(parseText(input, false), ["a'", "'b'", "'c"]);
+            assert.deepStrictEqual(parseText(input, false), ['a', 'b', 'c']);
         });
 
         it('removes NOT IN(...) wrapper', () => {
             const input = "NOT IN ('x','y')";
-            assert.deepStrictEqual(parseText(input, false), ["x'", "'y"]);
+            assert.deepStrictEqual(parseText(input, false), ['x', 'y']);
+        });
+
+        it('parses column-qualified SQL IN clauses', () => {
+            const input = "customer_id IN (123, 456, NULL)";
+            assert.deepStrictEqual(parseText(input, false), ['123', '456', 'NULL']);
+        });
+
+        it('parses quoted SQL values with commas and escaped quotes', () => {
+            const input = "name IN ('Smith, John', 'O''Reilly')";
+            assert.deepStrictEqual(parseText(input, false), ['Smith, John', "O'Reilly"]);
+        });
+
+        it('parses bracketed and dotted column-qualified clauses with trailing semicolons', () => {
+            const input = "[dbo].[Customer Name] IN ('Alice', 'Bob');";
+            assert.deepStrictEqual(parseText(input, false), ['Alice', 'Bob']);
+        });
+
+        it('preserves blank positions for delimiter-separated values', () => {
+            const input = 'a,,b';
+            assert.deepStrictEqual(parseText(input, false), ['a', '', 'b']);
+        });
+
+        it('preserves blank positions for empty lines inside copied lists', () => {
+            const input = 'a\n\nb';
+            assert.deepStrictEqual(parseText(input, false), ['a', '', 'b']);
+        });
+
+        it('preserves explicit empty string literals in SQL IN clauses', () => {
+            const input = "name IN ('Alice', '', 'Bob')";
+            assert.deepStrictEqual(parseText(input, false), ['Alice', '', 'Bob']);
+        });
+
+        it('fails fast for malformed quoted SQL IN clauses', () => {
+            const input = "name IN ('Alice', 'Bob)";
+            assert.throws(() => parseText(input, false), /Malformed SQL IN clause/);
         });
 
         it('handles tab-separated values', () => {
@@ -183,8 +218,11 @@ describe('Pure Function Unit Tests', () => {
         });
 
         it('formats whitespace-only as NULL', () => {
-            // The function does not treat whitespace-only as NULL, only empty string or "null"
-            assert.strictEqual(formatValue('   ', DataTypeMode.Auto), "'   '");
+            assert.strictEqual(formatValue('   ', DataTypeMode.Auto), 'NULL');
+        });
+
+        it('formats null-like values with surrounding whitespace as NULL', () => {
+            assert.strictEqual(formatValue('  null  ', DataTypeMode.Auto), 'NULL');
         });
 
         it('formats boolean-like strings as string', () => {
@@ -192,14 +230,23 @@ describe('Pure Function Unit Tests', () => {
             assert.strictEqual(formatValue('DataTypeMode.ForceText', DataTypeMode.Auto), "'DataTypeMode.ForceText'");
         });
 
-        it('formats numbers with leading zeros as string', () => {
-            // The function treats any number as a number, so returns "00123"
-            assert.strictEqual(formatValue('00123', DataTypeMode.Auto), '00123');
+        it('formats integer values with leading zeros as text in auto mode', () => {
+            assert.strictEqual(formatValue('00123', DataTypeMode.Auto), "'00123'");
+            assert.strictEqual(formatValue(' 00123 ', DataTypeMode.Auto), "'00123'");
+        });
+
+        it('trims accidental whitespace before numeric detection in auto mode', () => {
+            assert.strictEqual(formatValue(' 123 ', DataTypeMode.Auto), '123');
+        });
+
+        it('recognises valid T-separated datetimes', () => {
+            assert.strictEqual(formatValue('2024-01-15T08:30:45', DataTypeMode.Auto), "'2024-01-15T08:30:45'");
         });
 
         it('formats malformed date as string', () => {
-            // The function matches any YYYY-MM-DD as a date, even if the month is invalid
             assert.strictEqual(formatValue('2023-13-01', DataTypeMode.Auto), "'2023-13-01'");
+            assert.strictEqual(formatValue('2024-02-30', DataTypeMode.Auto), "'2024-02-30'");
+            assert.strictEqual(formatValue('2024-01-15 25:00:00', DataTypeMode.Auto), "'2024-01-15 25:00:00'");
         });
 
         it('formats unicode', () => {
@@ -278,10 +325,10 @@ describe('Pure Function Unit Tests', () => {
             assert.deepStrictEqual(result, [longString]);
         });
 
-        it('handles all common separators', () => {
+        it('preserves blank positions across mixed separators', () => {
             const input = 'a\nb\tc\rd\n\re';
             const result = parseText(input, false);
-            assert.deepStrictEqual(result, ['a', 'b', 'c', 'd', 'e']);
+            assert.deepStrictEqual(result, ['a', 'b', 'c', 'd', '', 'e']);
         });
     });
 
@@ -314,6 +361,10 @@ describe('Pure Function Unit Tests', () => {
         it('auto mode behaves as before', () => {
             assert.strictEqual(formatValue('123', DataTypeMode.Auto), '123');
             assert.strictEqual(formatValue('abc', DataTypeMode.Auto), "'abc'");
+        });
+
+        it('force number mode preserves explicit numeric override for leading-zero integers', () => {
+            assert.strictEqual(formatValue('00123', DataTypeMode.ForceNumber), '00123');
         });
     });
 
