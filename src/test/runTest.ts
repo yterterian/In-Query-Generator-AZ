@@ -1,6 +1,7 @@
 // File: src/test/runTest.ts
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as process from 'process';
 import { spawn } from 'child_process';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
@@ -147,7 +148,8 @@ async function runExtensionTests(
     testEnv: NodeJS.ProcessEnv
 ): Promise<void> {
     const extensionsDir = path.join(cacheRoot, 'extensions');
-    const userDataDir = path.join(cacheRoot, 'user-data', `run-${Date.now()}-${process.pid}`);
+    // Use os.tmpdir() so the socket path stays under the 103-char Unix limit on macOS CI
+    const userDataDir = path.join(os.tmpdir(), `vscode-test-${Date.now()}-${process.pid}`);
     fs.mkdirSync(extensionsDir, { recursive: true });
     fs.mkdirSync(userDataDir, { recursive: true });
 
