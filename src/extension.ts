@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import fetch from 'node-fetch';
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
 import { generateUuidV7 } from './telemetry/privacy';
 import {
@@ -30,12 +29,6 @@ import { sendPendingSessionSummaries, persistSessionSummary } from './telemetry/
 import { showKeybindingScopeNoticeOnce } from './migrationNotices';
 import { trackUsageAndPromptRating } from './ratingPrompt';
 import { createStatusBarItem, updateStatusBarItem } from './statusBarManager';
-
-type GlobalFetch = typeof globalThis & { fetch?: typeof fetch };
-const globalWithFetch = globalThis as GlobalFetch;
-if (!globalWithFetch.fetch) {
-    globalWithFetch.fetch = fetch;
-}
 
 let telemetryCollector: SupabaseTelemetryCollector | undefined;
 let sessionTelemetry: SessionTelemetryState | undefined;
