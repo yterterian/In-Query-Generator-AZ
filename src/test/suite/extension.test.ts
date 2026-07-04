@@ -203,4 +203,61 @@ describe('Extension Host Tests', () => {
             );
         });
     });
+
+    it('paste special keeps Stage 2 quick pick open when focus changes', async () => {
+        await activateExtension();
+
+        const quickPickOptions: vscode.QuickPickOptions[] = [];
+
+        await withWindowMethodOverride(
+            'showQuickPick',
+            async (_items: readonly unknown[], options?: vscode.QuickPickOptions) => {
+                quickPickOptions.push(options ?? {});
+                if (quickPickOptions.length === 1) {
+                    return { label: 'Distinct values (remove duplicates)', value: true };
+                }
+
+                return undefined;
+            },
+            async () => {
+                await vscode.commands.executeCommand('extension.pasteSpecialInStatement');
+            }
+        );
+
+        assert.strictEqual(quickPickOptions[0]?.ignoreFocusOut, true);
+        assert.strictEqual(quickPickOptions[1]?.ignoreFocusOut, true);
+    });
+
+    it('batch flow uses the typed column name without mutating the global defaultColumnName setting', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            defaultColumnName: 'saved_default',
+            alwaysShowPreview: false,
+            distinctValues: false
+        }, async () => {
+            const editor = await openEditor('Asset_Number\tName\n1336\tOne\n8869\tTwo');
+            editor.selection = new vscode.Selection(0, 0, editor.document.lineCount - 1, editor.document.lineAt(editor.document.lineCount - 1).text.length);
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async () => 'Asset_Number',
+                async () => {
+                    await withWindowMethodOverride(
+                        'showInputBox',
+                        async () => 'batch_once',
+                        async () => {
+                            await vscode.commands.executeCommand('extension.batchProcessInStatement');
+                        }
+                    );
+                }
+            );
+
+            await waitForDocumentText(editor.document, 'batch_once IN (1336, 8869)');
+            assert.strictEqual(
+                vscode.workspace.getConfiguration(configSection).get<string>('defaultColumnName', ''),
+                'saved_default'
+            );
+        });
+    });
 });

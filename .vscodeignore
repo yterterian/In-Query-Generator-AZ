@@ -9,6 +9,7 @@ eslint.config.js
 .nycrc.json
 
 # Coverage scripts and output
+.coverage/
 .coverage/**
 direct-coverage.js
 simple-coverage.js

@@ -340,7 +340,8 @@ async function showPasteSpecialDropdown() {
         { label: 'Cancel', command: undefined, option: 'cancel' }
     ];
     const actionChoice = await vscode.window.showQuickPick(actionOptions, {
-        placeHolder: 'Stage 2 of 3: Select paste action'
+        placeHolder: 'Stage 2 of 3: Select paste action',
+        ignoreFocusOut: true
     });
     if (!actionChoice || !actionChoice.command) {
         emitFunnel(false);
@@ -612,7 +613,11 @@ async function processBatchDataFromArray(data: string[][]) {
     );
 
     if (selectedColumn) {
-        const columnIndex = columns.find(col => col.label === selectedColumn)?.index || 0;
+        const columnIndex = columns.find(col => col.label === selectedColumn)?.index;
+        if (columnIndex === undefined) {
+            vscode.window.showWarningMessage('Selected column could not be resolved.');
+            return;
+        }
         let values = data.slice(1).map(row => row[columnIndex] || '').filter(val => val !== '');
 
         if (values.length === 0) {
@@ -625,17 +630,11 @@ async function processBatchDataFromArray(data: string[][]) {
         const clauseSafety = applyClauseNullSafety(values, false);
         values = clauseSafety.values;
 
-        const config = vscode.workspace.getConfiguration('inQueryGenerator');
-
         const columnNameInput = await vscode.window.showInputBox({
             prompt: 'Enter column name to use in the IN clause (optional)',
             placeHolder: 'e.g., customer_id',
             value: selectedColumn
         });
-
-        if (columnNameInput) {
-            config.update('defaultColumnName', columnNameInput, true);
-        }
 
         const inStatement = generateInStatement(values, columnNameInput, false);
         await previewAndApplyStatement({ inStatement, editor, isCopyCommand: false });

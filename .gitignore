@@ -8,6 +8,7 @@ node_modules/
 out/
 
 # Test coverage
+.coverage/
 coverage/
 .nyc_output/
 
