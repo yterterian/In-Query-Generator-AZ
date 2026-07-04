@@ -10,13 +10,14 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 
 ---
 
-## What's New In v0.16.0
+## What's New In v0.16.1
 
-- Harder-to-break parsing for pasted SQL `IN (...)` and `NOT IN (...)` fragments, quoted values, leading-zero IDs, and mixed copied data.
-- More conservative table and header detection so copied result sets are less likely to lose the first real value.
-- Refactored extension-host workflow with better helper-module coverage and stronger Windows test reliability.
-- Telemetry and privacy behaviour now align more closely: hashed anonymous identifiers, DST-correct Sydney timestamps, and no raw error messages or stacks in telemetry payloads.
-- Local packaging verified as `0.16.0` for VS Code testing.
+- Default keyboard shortcuts now apply only in SQL-family editors, so they no longer override common VS Code shortcuts in unrelated languages.
+- Added `inQueryGenerator.globalKeybindings` for users who want the old global shortcut behaviour back.
+- Hardened telemetry delivery: bounded queue, retry cap, permanent-error drop, and no focus-stealing telemetry UI.
+- Added privacy-safe per-generation telemetry and recovered session summaries that can be delivered on the next activation if VS Code shuts down before a flush completes.
+- `NOT IN` generation now strips blank and `NULL`-like values that would otherwise make the predicate return no rows.
+- Added schema-contract telemetry tests so Supabase payload changes are caught deliberately.
 
 ---
 
@@ -26,14 +27,16 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 |------------------------------------------|--------------------------------------------------------------------------------------------------|
 | IN/NOT IN Clause Generation              | Convert selected text or clipboard content into SQL `IN`/`NOT IN` clauses                        |
 | Batch/Table Data Processing              | Select a column from tabular data (with headers) to generate an IN clause                        |
-| Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle)                   |
+| Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle, data type mode)   |
 | Data Type Detection                      | Automatically formats numbers, dates, GUIDs, and more                                            |
 | **Data Type Override**             | Force values as text or numbers - perfect for numeric IDs that should be quoted                  |
 | Deduplication (Distinct)                 | Optionally remove duplicate values (configurable globally and per-use)                           |
+| NULL-safe `NOT IN` Handling              | Blank and `NULL`-like inputs are removed from `NOT IN` clauses to avoid always-false predicates |
 | Custom Formatting                        | One value per line, max values per line, indentation, and more                                   |
 | Status Bar Customization                 | Quick access to extension features via a configurable status bar dropdown                        |
-| Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed                          |
+| Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed or `NULL` handling       |
 | Keyboard Shortcuts                       | Fast access to core features                                                                     |
+| Privacy-first Telemetry                  | Optional aggregate telemetry with hashed install IDs, coarse value buckets, and no SQL payloads  |
 | Error Handling & Guidance                | User-friendly messages and tips for best results                                                 |
 
 ---
@@ -74,7 +77,7 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
   - **Paste Column + IN Statement**: Select a column from tabular data (with headers).
   - **Paste Column + NOT IN Statement**: Same as above, but for NOT IN.
 
-  **Stage 3: Data Type Override** ✨ NEW
+  **Stage 3: Data Type Override**
   - **Auto-detect (Smart)**: Default behavior - automatically detects and formats numbers, dates, GUIDs, and text appropriately.
   - **Force Text (Quote All)**: Forces ALL values to be quoted as text - perfect for numeric IDs like `123` that should be `'123'`.
   - **Force Number (Unquote All)**: Forces all values to be unquoted as numbers (non-numeric values are automatically quoted as fallback).
@@ -82,7 +85,7 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 ### 4. **Process Table Data as IN Statement**
 
 - Select tabular data (with headers) in your editor.
-- Right-click and select **Process Table Data as IN Statement** (or use Ctrl+Shift+B).
+- Open the Command Palette and run **Process Table Data as IN Statement**.
 - Select the column for the IN clause and optionally specify a column name.
 
 ---
@@ -123,13 +126,15 @@ When using **Paste Special In Statement**, you'll be prompted to choose a data t
 
 When telemetry is enabled, the extension records limited aggregate usage around this workflow:
 
-- Which data type modes are selected
-- Whether the feature was accessed through the Paste Special workflow
-- How often deduplication is used alongside the feature
+- Which SQL-generation command path was used
+- Which clause type and data type mode were selected
+- Whether deduplication was used and how many duplicates were removed
+- A coarse bucket for unique value count rather than the exact count
+- Aggregate session summaries and classified error events
 
 It does not send SQL values, clipboard contents, file names, workspace identifiers, raw error messages, or raw error stacks.
 
-You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`.
+You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`. For the current policy, see [docs/PrivacyStatement.md](docs/PrivacyStatement.md).
 
 ---
 
@@ -151,7 +156,8 @@ You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`.
 ## Status Bar Customization
 
 - The status bar provides quick access to extension features.
-- You can configure which actions appear via `inQueryGenerator.statusBarActions` (e.g., show a dropdown or pin a specific command).
+- Use `inQueryGenerator.statusBarActions` to show the default dropdown or pin a specific command.
+- If you provide multiple command IDs, the current implementation displays the first configured pinned action.
 
 ---
 
@@ -169,7 +175,7 @@ This extension contributes the following settings:
   - `oneValuePerLine`: Put each value on a separate line.
   - `maxValuesPerLine`: Maximum number of values per line when not using oneValuePerLine.
   - `indentSize`: Number of spaces to use for indentation in multi-line format.
-- `inQueryGenerator.statusBarActions`: List of actions to show in the status bar (dropdown or pinned commands).
+- `inQueryGenerator.statusBarActions`: Status bar mode. Use `["dropdown"]` for the default menu, or put a command ID first to pin that action.
 - `inQueryGenerator.distinctValues`: Remove duplicate values before generating statements.
 - `inQueryGenerator.distinctCaseSensitive`: Case sensitivity for deduplication.
 - `inQueryGenerator.distinctTrimWhitespace`: Ignore whitespace when deduplicating.
@@ -182,6 +188,7 @@ This extension contributes the following settings:
 - Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement in SQL-family editors
 - Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement in SQL-family editors
 - **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 3-stage workflow with data type override in SQL-family editors
+- No default shortcut is assigned to **Process Table Data as IN Statement**
 
 By default, shortcuts apply only in SQL-family editors so they do not override VS Code shortcuts in other languages. If you also use the extension in untitled or plain-text tabs, enable `inQueryGenerator.globalKeybindings` to restore the old global shortcut behaviour.
 
@@ -231,7 +238,7 @@ IN ('A', 'B', 'C')
 IN ('A', 'B', 'A', 'C', 'B')
 ```
 
-### Data Type Override Example ✨ NEW
+### Data Type Override Example
 
 **Input (numeric IDs stored as VARCHAR):**
 
@@ -279,6 +286,7 @@ Asset_Number IN (1336, 138804, 8869)
 
 - **Copy with headers** for best results when using column-based features.
 - Use the **Paste Special In Statement** for advanced options and deduplication control.
+- If you are generating a `NOT IN` clause, leave blank rows out of the source data where possible; the extension will drop them and warn when needed.
 - Adjust configuration settings to match your workflow and data conventions.
 - The extension provides feedback on duplicates removed and errors encountered.
 
@@ -288,6 +296,7 @@ Asset_Number IN (1336, 138804, 8869)
 
 - If you see "Clipboard data does not appear to be tabular with headers," ensure you copied both the header and data rows.
 - For large datasets, the extension will warn you if processing may take time.
+- If a `NOT IN` clause would contain blank or `NULL`-like values, the extension removes them because `NOT IN (..., NULL, ...)` can return no rows.
 - If you encounter issues, check your configuration settings and review the feedback messages.
 
 ---
@@ -295,7 +304,7 @@ Asset_Number IN (1336, 138804, 8869)
 ## Documentation & Support
 
 - All features and configuration options are documented in this ReadMe and in the extension's settings UI.
-- For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/AZDataStudioExtension/issues).
+- For further help or to report issues, visit the [GitHub repository](https://github.com/yterterian/In-Query-Generator-AZ/issues).
 - 📄 **[Privacy Statement](docs/PrivacyStatement.md)** — Learn what data we collect, what we don’t, and how you can control your privacy.
 
 ---
@@ -308,8 +317,20 @@ Asset_Number IN (1336, 138804, 8869)
 
 - Scoped default keyboard shortcuts to SQL-family editors so they no longer override common VS Code shortcuts in unrelated languages.
 - Added the `inQueryGenerator.globalKeybindings` setting for users who want the old everywhere behaviour back with one toggle.
-- Removed the conflicting default `Ctrl+Shift+B` binding while keeping the batch command available from the command palette and menus.
+- Removed the conflicting default `Ctrl+Shift+B` binding while keeping the batch command available from the command palette.
 - Added a one-time upgrade notice explaining the shortcut scope change and how to re-enable global bindings.
+
+#### Telemetry And Reliability
+
+- Hardened Supabase telemetry delivery with a bounded in-memory queue, retry limit, permanent-error drop behaviour, and a re-entrancy-safe flush path.
+- Added privacy-safe per-generation telemetry for command path, clause type, data type mode, deduplication, and coarse value-count buckets.
+- Persisted session summaries locally during use so aggregate session events can be recovered on the next activation instead of depending on shutdown-time network I/O.
+- Added schema-contract tests that assert the telemetry insert payload matches the checked-in Supabase table contract.
+
+#### SQL Correctness
+
+- `NOT IN` generation now removes blank and `NULL`-like values that would otherwise make the predicate return no rows.
+- Added clearer user warnings when copied data contains `NULL`-like values.
 
 ### Version 0.16.0 - May 2026
 
@@ -352,4 +373,4 @@ Asset_Number IN (1336, 138804, 8869)
 - Added exhaustive switch pattern for compile-time safety
 - Enhanced documentation with use cases and examples
 
-See the [GitHub Releases](https://github.com/yterterian/AZDataStudioExtension/releases) for complete version history.
+See the [GitHub Releases](https://github.com/yterterian/In-Query-Generator-AZ/releases) for complete version history.

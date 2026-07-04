@@ -115,8 +115,8 @@ This document may be updated when telemetry behaviour changes. The **Last update
 
 If you have questions about this privacy statement or the extension’s telemetry behaviour:
 
-- **GitHub Issues:** [https://github.com/yterterian/AZDataStudioExtension/issues](https://github.com/yterterian/AZDataStudioExtension/issues)
-- **Repository:** [https://github.com/yterterian/AZDataStudioExtension](https://github.com/yterterian/AZDataStudioExtension)
+- **GitHub Issues:** [https://github.com/yterterian/In-Query-Generator-AZ/issues](https://github.com/yterterian/In-Query-Generator-AZ/issues)
+- **Repository:** [https://github.com/yterterian/In-Query-Generator-AZ](https://github.com/yterterian/In-Query-Generator-AZ)
 
 ---
 

@@ -3,7 +3,7 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
-import { buildSafeErrorProperties, bucketValueCount, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
+import { buildSafeErrorProperties, bucketValueCount, formatSydneyTimestamp, generateUuidV7, hashAnonymousUserId } from './privacy';
 import { buildTelemetryInsertEvent } from './event-builder';
 import * as vscode from 'vscode';
 
@@ -45,7 +45,6 @@ export interface SqlGenerationTelemetry {
 export class SupabaseTelemetryCollector implements TelemetryCollector {
   private queue: TelemetryEvent[] = [];
   private flushTimer: NodeJS.Timeout | undefined;
-  private flushing = false;
   private activeFlush: Promise<void> | undefined;
   private consecutiveFailures = 0;
   private readonly batchSize = 20;
@@ -67,7 +66,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
     if (!isTelemetryEnabled()) return;
 
     const event = buildTelemetryInsertEvent({
-      id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      id: generateUuidV7(),
       eventName,
       timestamp: formatSydneyTimestamp(),
       sessionId: vscode.env.sessionId || '',
@@ -136,18 +135,12 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   }
 
   private async runFlushLoop(): Promise<void> {
-    this.flushing = true;
-
-    try {
-      while (isTelemetryEnabled() && this.queue.length > 0) {
-        const eventsToSend = this.queue.splice(0, this.batchSize);
-        const shouldContinue = await this.sendBatch(eventsToSend);
-        if (!shouldContinue) {
-          break;
-        }
+    while (isTelemetryEnabled() && this.queue.length > 0) {
+      const eventsToSend = this.queue.splice(0, this.batchSize);
+      const shouldContinue = await this.sendBatch(eventsToSend);
+      if (!shouldContinue) {
+        break;
       }
-    } finally {
-      this.flushing = false;
     }
   }
 

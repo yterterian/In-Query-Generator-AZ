@@ -2,6 +2,7 @@
 
 # Node modules
 node_modules/
+.npm-cache/
 
 # Build output
 out/

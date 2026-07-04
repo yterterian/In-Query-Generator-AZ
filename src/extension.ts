@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import * as crypto from 'crypto';
 import fetch from 'node-fetch';
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
+import { generateUuidV7 } from './telemetry/privacy';
 import {
     detectTableData,
     prepareClipboardValuesForColumnPaste,
@@ -120,7 +120,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Initialize session telemetry state
     sessionTelemetry = {
-        session_id: generateSessionId(),
+        session_id: generateUuidV7(),
         start_time: new Date().toISOString(),
         total_sql_generations: 0,
         by_command: {},
@@ -694,17 +694,6 @@ export async function deactivate() {
     if (telemetryCollector) {
         await telemetryCollector.dispose();
     }
-}
-
-function generateSessionId(): string {
-    // Secure UUID generation using crypto.randomBytes
-    const randomBytes = crypto.randomBytes(16);
-    randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40; // Set version to 4
-    randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80; // Set variant to RFC4122
-    return [...randomBytes].map((byte, index) => {
-        const hex = byte.toString(16).padStart(2, '0');
-        return (index === 4 || index === 6 || index === 8 || index === 10) ? `-${hex}` : hex;
-    }).join('');
 }
 
 // Export for use in other modules

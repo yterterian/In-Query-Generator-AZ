@@ -5,6 +5,7 @@ import {
   clampString,
   clampTelemetryString,
   formatSydneyTimestamp,
+  generateUuidV7,
   getDurationSeconds,
   hashAnonymousUserId,
   sanitizeTelemetryEvent
@@ -40,6 +41,15 @@ describe('Telemetry Privacy Tests', () => {
   it('formatSydneyTimestamp uses +10:00 outside daylight saving time', () => {
     const timestamp = formatSydneyTimestamp(new Date('2026-06-15T00:00:00Z'));
     assert.ok(timestamp.endsWith('+10:00'));
+  });
+
+  it('generateUuidV7 returns a valid UUID v7 with the embedded timestamp prefix', () => {
+    const date = new Date('2026-07-04T00:00:00.000Z');
+    const uuid = generateUuidV7(date);
+    const compact = uuid.replace(/-/g, '');
+
+    assert.match(uuid, /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.strictEqual(compact.slice(0, 12), date.getTime().toString(16).padStart(12, '0'));
   });
 
   it('buildSafeErrorProperties omits raw error message and stack data', () => {

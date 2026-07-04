@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { TelemetryEvent, TelemetryScalar } from './types';
 import { TELEMETRY_FIELD_LIMITS } from './schema-contract';
 
@@ -19,6 +19,28 @@ export function hashAnonymousUserId(machineId: string, extensionId: string): str
   return createHash('sha256')
     .update(`${extensionId}:${machineId}`, 'utf8')
     .digest('hex');
+}
+
+function formatUuidBytes(bytes: Uint8Array): string {
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+export function generateUuidV7(date: Date = new Date()): string {
+  const timestamp = date.getTime();
+  const bytes = randomBytes(16);
+
+  bytes[0] = Math.floor(timestamp / 0x10000000000) & 0xff;
+  bytes[1] = Math.floor(timestamp / 0x100000000) & 0xff;
+  bytes[2] = Math.floor(timestamp / 0x1000000) & 0xff;
+  bytes[3] = Math.floor(timestamp / 0x10000) & 0xff;
+  bytes[4] = Math.floor(timestamp / 0x100) & 0xff;
+  bytes[5] = timestamp & 0xff;
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x70;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  return formatUuidBytes(bytes);
 }
 
 export function formatSydneyTimestamp(date: Date = new Date()): string {

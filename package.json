@@ -6,7 +6,7 @@
   "version": "0.16.1",
   "icon": "images/logo-icon.png",
   "engines": {
-    "vscode": "^1.50.0",
+    "vscode": "^1.95.0",
     "node": ">=20.0.0"
   },
   "categories": [
@@ -30,13 +30,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yterterian/AZDataStudioExtension.git"
+    "url": "https://github.com/yterterian/In-Query-Generator-AZ.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/yterterian/AZDataStudioExtension/issues"
+    "url": "https://github.com/yterterian/In-Query-Generator-AZ/issues"
   },
-  "homepage": "https://github.com/yterterian/AZDataStudioExtension#readme",
+  "homepage": "https://github.com/yterterian/In-Query-Generator-AZ#readme",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -248,6 +248,7 @@
     "typescript": "^4.0.3"
   },
   "dependencies": {
+    "@secretlint/node": "^10.2.2",
     "@supabase/supabase-js": "^2.49.8",
     "node-fetch": "^2.7.0"
   },
