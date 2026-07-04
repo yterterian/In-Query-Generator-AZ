@@ -9,12 +9,14 @@ import {
 } from './inputPreparation';
 import { parseText as pureParseText, DataTypeMode } from './pure';
 import {
+    applyClauseNullSafety,
     formatValueWithConfig,
     generateStatement,
     generateStatementWithMode,
     prepareValuesForStatement
 } from './statementPreparation';
 import {
+    buildClauseNullWarningMessage,
     buildDeduplicationMessage,
     buildPasteInsertedMessage,
     buildSelectionCopiedMessage,
@@ -24,6 +26,7 @@ import {
     SessionTelemetryState
 } from './commandEffects';
 import { getDurationSeconds } from './telemetry/privacy';
+import { showKeybindingScopeNoticeOnce } from './migrationNotices';
 import { trackUsageAndPromptRating } from './ratingPrompt';
 import { createStatusBarItem, updateStatusBarItem } from './statusBarManager';
 
@@ -39,6 +42,33 @@ let statusBarItem: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext | undefined;
 const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
 
+function recordExtensionError(error: unknown, context: string): void {
+    if (sessionTelemetry) {
+        sessionTelemetry.error_count += 1;
+    }
+
+    if (!telemetryCollector) {
+        return;
+    }
+
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    void telemetryCollector.logError(normalizedError, context);
+}
+
+function showClauseNullWarning(
+    clauseType: 'IN' | 'NOT IN',
+    nullLikeCount: number,
+    removedNullsFromNotIn: boolean
+): void {
+    if (nullLikeCount === 0) {
+        return;
+    }
+
+    vscode.window.showWarningMessage(
+        buildClauseNullWarningMessage(clauseType, nullLikeCount, removedNullsFromNotIn)
+    );
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
     // Initialize telemetry
@@ -47,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext) {
         first_activation: !context.globalState.get('hasActivatedBefore', false),
         workspace_type: vscode.workspace.workspaceFolders ? 'workspace' : 'no-workspace'
     });
-    context.globalState.update('hasActivatedBefore', true);
+    await context.globalState.update('hasActivatedBefore', true);
 
     // Initialize session telemetry state
     sessionTelemetry = {
@@ -142,6 +172,8 @@ export async function activate(context: vscode.ExtensionContext) {
         toggleSplitCommand,
         toggleNotInCommand
     );
+
+    showKeybindingScopeNoticeOnce(context);
 }
 
 // Direct paste as IN/NOT IN
@@ -178,6 +210,13 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
 
         const preparedStatement = prepareValuesForStatement(parsedData, distinctOverride);
         parsedData = preparedStatement.values;
+        const clauseSafety = applyClauseNullSafety(parsedData, forceNotIn);
+        parsedData = clauseSafety.values;
+
+        if (parsedData.length === 0) {
+            vscode.window.showWarningMessage('No valid data remains after removing blank/NULL values from NOT IN.');
+            return;
+        }
 
         const inStatement = generateStatementWithMode(parsedData, undefined, forceNotIn, dataTypeModeOverride);
         await insertStatement(editor, inStatement);
@@ -192,11 +231,17 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             removed: preparedStatement.removed,
             useDistinct: preparedStatement.useDistinct
         }));
+        showClauseNullWarning(
+            forceNotIn ? 'NOT IN' : 'IN',
+            clauseSafety.nullLikeCount,
+            clauseSafety.removedNullsFromNotIn
+        );
         // Track usage for rating prompt
         if (context) {
             await trackUsageAndPromptRating(context, EXTENSION_ID);
         }
-    } catch {
+    } catch (error) {
+        recordExtensionError(error, 'processAndPasteClipboardDirect');
         vscode.window.showErrorMessage('Error processing clipboard.');
     }
 }
@@ -339,6 +384,13 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
 
         const preparedStatement = prepareValuesForStatement(values, distinctOverride);
         values = preparedStatement.values;
+        const clauseSafety = applyClauseNullSafety(values, forceNotIn);
+        values = clauseSafety.values;
+
+        if (values.length === 0) {
+            vscode.window.showWarningMessage('No valid data remains after removing blank/NULL values from NOT IN.');
+            return;
+        }
 
         // Prompt for column name (suggest detected header if available)
         const suggestedColumnName = preparedValues.suggestedColumnName;
@@ -363,7 +415,13 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             useDistinct: preparedStatement.useDistinct,
             columnName: resolvedColumnName
         }));
-    } catch {
+        showClauseNullWarning(
+            forceNotIn ? 'NOT IN' : 'IN',
+            clauseSafety.nullLikeCount,
+            clauseSafety.removedNullsFromNotIn
+        );
+    } catch (error) {
+        recordExtensionError(error, 'processColumnPaste');
         vscode.window.showErrorMessage('Error processing column paste.');
     }
 }
@@ -387,6 +445,14 @@ async function processSelection(context: vscode.ExtensionContext) {
                 }
                 const preparedStatement = prepareValuesForStatement(data);
                 data = preparedStatement.values;
+                const useNotIn = vscode.workspace.getConfiguration('inQueryGenerator').get<boolean>('useNotIn', false);
+                const clauseSafety = applyClauseNullSafety(data, useNotIn);
+                data = clauseSafety.values;
+
+                if (data.length === 0) {
+                    vscode.window.showWarningMessage('No valid data remains after removing blank/NULL values from NOT IN.');
+                    return;
+                }
 
                 const inStatement = generateInStatement(data);
                 await previewAndApplyStatement({ inStatement, editor, isCopyCommand: true });
@@ -399,6 +465,11 @@ async function processSelection(context: vscode.ExtensionContext) {
                 if (preparedStatement.useDistinct) {
                     vscode.window.showInformationMessage(buildDeduplicationMessage('Selection', preparedStatement.removed));
                 }
+                showClauseNullWarning(
+                    useNotIn ? 'NOT IN' : 'IN',
+                    clauseSafety.nullLikeCount,
+                    clauseSafety.removedNullsFromNotIn
+                );
                 const itemCount = data.length;
                 vscode.window.showInformationMessage(buildSelectionCopiedMessage(itemCount));
                 await trackUsageAndPromptRating(context, EXTENSION_ID);
@@ -408,7 +479,8 @@ async function processSelection(context: vscode.ExtensionContext) {
         } else {
             vscode.window.showWarningMessage('No active text editor.');
         }
-    } catch {
+    } catch (error) {
+        recordExtensionError(error, 'processSelection');
         vscode.window.showErrorMessage('Error processing selection.');
     }
 }
@@ -438,7 +510,8 @@ async function processBatchData() {
         }
 
         await processBatchDataFromArray(data);
-    } catch {
+    } catch (error) {
+        recordExtensionError(error, 'processBatchData');
         vscode.window.showErrorMessage('Error processing selection.');
     }
 }
@@ -469,6 +542,8 @@ async function processBatchDataFromArray(data: string[][]) {
 
         const preparedStatement = prepareValuesForStatement(values);
         values = preparedStatement.values;
+        const clauseSafety = applyClauseNullSafety(values, false);
+        values = clauseSafety.values;
 
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
 
@@ -493,6 +568,7 @@ async function processBatchDataFromArray(data: string[][]) {
         if (preparedStatement.useDistinct) {
             vscode.window.showInformationMessage(buildDeduplicationMessage('Batch', preparedStatement.removed));
         }
+        showClauseNullWarning('IN', clauseSafety.nullLikeCount, clauseSafety.removedNullsFromNotIn);
     }
 }
 
@@ -501,7 +577,8 @@ export function parseText(text: string): string[] {
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
         const splitOnWhitespace = config.get<boolean>('splitOnWhitespace', false);
         return pureParseText(text, splitOnWhitespace);
-    } catch {
+    } catch (error) {
+        recordExtensionError(error, 'parseText');
         vscode.window.showErrorMessage('Failed to parse input.');
         return [];
     }

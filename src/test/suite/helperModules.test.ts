@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DataTypeMode } from '../../pure';
+import { showKeybindingScopeNoticeOnce } from '../../migrationNotices';
 import { createStatusBarItem, updateStatusBarItem } from '../../statusBarManager';
-import { generateStatementWithMode, prepareValuesForStatement } from '../../statementPreparation';
+import { applyClauseNullSafety, generateStatementWithMode, prepareValuesForStatement } from '../../statementPreparation';
 
 describe('Helper Module Host Tests', () => {
     const configSection = 'inQueryGenerator';
@@ -25,6 +26,28 @@ describe('Helper Module Host Tests', () => {
             for (const [key, value] of originals.entries()) {
                 await config.update(key, value, true);
             }
+        }
+    }
+
+    async function withWindowMethodOverride<T>(
+        methodName: 'showInformationMessage',
+        replacement: T,
+        run: () => Promise<void> | void
+    ): Promise<void> {
+        const original = (vscode.window as Record<string, unknown>)[methodName];
+
+        Object.defineProperty(vscode.window, methodName, {
+            value: replacement,
+            configurable: true
+        });
+
+        try {
+            await run();
+        } finally {
+            Object.defineProperty(vscode.window, methodName, {
+                value: original,
+                configurable: true
+            });
         }
     }
 
@@ -71,6 +94,18 @@ describe('Helper Module Host Tests', () => {
         });
     });
 
+    it('applyClauseNullSafety removes NULL-like values from NOT IN but preserves them for IN', () => {
+        const notInResult = applyClauseNullSafety(['A', '', 'NULL', 'B'], true);
+        assert.deepStrictEqual(notInResult.values, ['A', 'B']);
+        assert.strictEqual(notInResult.nullLikeCount, 2);
+        assert.strictEqual(notInResult.removedNullsFromNotIn, true);
+
+        const inResult = applyClauseNullSafety(['A', '', 'NULL', 'B'], false);
+        assert.deepStrictEqual(inResult.values, ['A', '', 'NULL', 'B']);
+        assert.strictEqual(inResult.nullLikeCount, 2);
+        assert.strictEqual(inResult.removedNullsFromNotIn, false);
+    });
+
     it('updateStatusBarItem applies pinned action text and command', async () => {
         await withConfigOverrides({
             statusBarActions: ['extension.pasteAsNotInStatementDirect']
@@ -87,5 +122,37 @@ describe('Helper Module Host Tests', () => {
                 statusBarItem.dispose();
             }
         });
+    });
+
+    it('showKeybindingScopeNoticeOnce records dismissal immediately so it only shows once', async () => {
+        let shownCount = 0;
+        const stored = new Map<string, boolean>();
+        const context = {
+            globalState: {
+                get<T>(key: string, defaultValue?: T): T {
+                    return (stored.has(key) ? stored.get(key) : defaultValue) as T;
+                },
+                update(key: string, value: boolean): Thenable<void> {
+                    stored.set(key, value);
+                    return Promise.resolve();
+                }
+            }
+        } as unknown as vscode.ExtensionContext;
+
+        await withWindowMethodOverride(
+            'showInformationMessage',
+            async () => {
+                shownCount += 1;
+                return undefined;
+            },
+            async () => {
+                showKeybindingScopeNoticeOnce(context);
+                showKeybindingScopeNoticeOnce(context);
+                await Promise.resolve();
+            }
+        );
+
+        assert.strictEqual(shownCount, 1);
+        assert.strictEqual(stored.get('inQueryGenerator.keybindingScopeNoticeShown'), true);
     });
 });

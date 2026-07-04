@@ -3,13 +3,20 @@ import {
     generateInStatement as pureGenerateInStatement,
     formatValue as pureFormatValue,
     FormatOptions,
-    DataTypeMode
+    DataTypeMode,
+    isNullLikeValue
 } from './pure';
 
 export interface PreparedStatementValues {
     values: string[];
     removed: number;
     useDistinct: boolean;
+}
+
+export interface ClauseNullSafetyResult {
+    values: string[];
+    nullLikeCount: number;
+    removedNullsFromNotIn: boolean;
 }
 
 function deduplicateValues(
@@ -73,6 +80,35 @@ export function prepareValuesForStatement(
         values: deduplicated.unique,
         removed: deduplicated.removed,
         useDistinct: true
+    };
+}
+
+export function applyClauseNullSafety(
+    values: string[],
+    useNotIn: boolean
+): ClauseNullSafetyResult {
+    const nullLikeCount = values.filter(isNullLikeValue).length;
+
+    if (nullLikeCount === 0) {
+        return {
+            values,
+            nullLikeCount,
+            removedNullsFromNotIn: false
+        };
+    }
+
+    if (!useNotIn) {
+        return {
+            values,
+            nullLikeCount,
+            removedNullsFromNotIn: false
+        };
+    }
+
+    return {
+        values: values.filter(value => !isNullLikeValue(value)),
+        nullLikeCount,
+        removedNullsFromNotIn: true
     };
 }
 

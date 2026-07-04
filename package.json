@@ -3,7 +3,7 @@
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
   "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for VS Code.",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.50.0",
@@ -120,6 +120,11 @@
           "type": "boolean",
           "default": true,
           "description": "When deduplicating, ignore leading/trailing whitespace differences."
+        },
+        "inQueryGenerator.globalKeybindings": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable the extension's keyboard shortcuts in **all** file types, not just SQL files. Turn this on if you generate IN clauses in untitled or plain-text editors. Note: this allows the shortcuts to shadow VS Code defaults in other languages (for example `Ctrl+Shift+V` Markdown preview)."
         }
       }
     },
@@ -189,31 +194,19 @@
         "command": "extension.copyAsInStatement",
         "key": "ctrl+shift+i",
         "mac": "cmd+shift+i",
-        "when": "editorHasSelection"
-      },
-      {
-        "command": "extension.pasteAsInStatement",
-        "key": "ctrl+shift+v",
-        "mac": "cmd+shift+v",
-        "when": "editorFocus"
+        "when": "editorTextFocus && editorHasSelection && (editorLangId =~ /sql|postgres|hql/ || config.inQueryGenerator.globalKeybindings)"
       },
       {
         "command": "extension.pasteAsInStatementDirect",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "editorFocus"
-      },
-      {
-        "command": "extension.batchProcessInStatement",
-        "key": "ctrl+shift+b",
-        "mac": "cmd+shift+b",
-        "when": "editorHasSelection"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId =~ /sql|postgres|hql/ || config.inQueryGenerator.globalKeybindings)"
       },
       {
         "command": "extension.pasteSpecialInStatement",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "editorFocus"
+        "when": "editorTextFocus && !editorReadonly && (editorLangId =~ /sql|postgres|hql/ || config.inQueryGenerator.globalKeybindings)"
       }
     ]
   },

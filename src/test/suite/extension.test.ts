@@ -55,7 +55,7 @@ describe('Extension Host Tests', () => {
     }
 
     async function withWindowMethodOverride<T>(
-        methodName: 'showQuickPick' | 'showInputBox',
+        methodName: 'showQuickPick' | 'showInputBox' | 'showWarningMessage',
         replacement: T,
         run: () => Promise<void>
     ): Promise<void> {
@@ -154,6 +154,28 @@ describe('Extension Host Tests', () => {
             );
 
             await waitForDocumentText(editor.document, "IN ('John', 'Jane')");
+        });
+    });
+
+    it('direct NOT IN paste strips blank and NULL values before generating SQL', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: false
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText('1336\n\nNULL\n8869');
+
+            await withWindowMethodOverride(
+                'showWarningMessage',
+                async () => undefined,
+                async () => {
+                    await vscode.commands.executeCommand('extension.pasteAsNotInStatementDirect');
+                }
+            );
+
+            await waitForDocumentText(editor.document, 'NOT IN (1336, 8869)');
         });
     });
 

@@ -60,6 +60,12 @@ async function showRatingPrompt(context: vscode.ExtensionContext, extensionId: s
             await context.globalState.update(RATING_PROMPT_KEY, true);
             await context.globalState.update(RATING_BACKOFF_KEY, 0);
             break;
+
+        default: {
+            const backoffCount = context.globalState.get<number>(RATING_BACKOFF_KEY, 0) + 1;
+            await context.globalState.update(RATING_BACKOFF_KEY, backoffCount);
+            break;
+        }
     }
 }
 

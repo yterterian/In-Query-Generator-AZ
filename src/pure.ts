@@ -240,6 +240,11 @@ function formatAutoDetect(value: string): string {
     return formatAsText(value);
 }
 
+export function isNullLikeValue(item: string): boolean {
+    const trimmedItem = item.trim();
+    return !trimmedItem || trimmedItem.toLowerCase() === 'null';
+}
+
 /**
  * Formats a single value for SQL IN clause based on data type strategy.
  *
@@ -256,12 +261,12 @@ export function formatValue(
     item: string,
     dataTypeMode: DataTypeMode = DataTypeMode.Auto
 ): string {
-    const trimmedItem = item.trim();
-
     // NULL handling is universal - always takes precedence
-    if (!trimmedItem || trimmedItem.toLowerCase() === 'null') {
+    if (isNullLikeValue(item)) {
         return 'NULL';
     }
+
+    const trimmedItem = item.trim();
 
     // Apply formatting strategy based on mode
     switch (dataTypeMode) {

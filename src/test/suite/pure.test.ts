@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseText, formatValue, generateInStatement, FormatOptions, DataTypeMode } from '../../pure';
+import { parseText, formatValue, generateInStatement, FormatOptions, DataTypeMode, isNullLikeValue } from '../../pure';
 
 describe('Pure Function Unit Tests', () => {
     describe('parseText', () => {
@@ -28,6 +28,13 @@ describe('Pure Function Unit Tests', () => {
     });
 
     describe('formatValue', () => {
+        it('detects null-like input consistently', () => {
+            assert.strictEqual(isNullLikeValue(''), true);
+            assert.strictEqual(isNullLikeValue('   '), true);
+            assert.strictEqual(isNullLikeValue(' null '), true);
+            assert.strictEqual(isNullLikeValue('value'), false);
+        });
+
         it('formats null and NULL as NULL', () => {
             assert.strictEqual(formatValue('NULL', DataTypeMode.Auto), 'NULL');
             assert.strictEqual(formatValue('null', DataTypeMode.Auto), 'NULL');

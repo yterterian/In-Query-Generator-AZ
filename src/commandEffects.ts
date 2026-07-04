@@ -128,3 +128,16 @@ export function buildDeduplicationMessage(scope: 'Selection' | 'Batch', removed:
 export function buildSelectionCopiedMessage(itemCount: number): string {
     return `✅ Copied ${itemCount} item${itemCount !== 1 ? 's' : ''} as IN statement to clipboard!`;
 }
+
+export function buildClauseNullWarningMessage(
+    clauseType: 'IN' | 'NOT IN',
+    nullLikeCount: number,
+    removedNullsFromNotIn: boolean
+): string {
+    const valueLabel = `${nullLikeCount} blank/NULL value${nullLikeCount === 1 ? '' : 's'}`;
+    if (removedNullsFromNotIn) {
+        return `Removed ${valueLabel} from NOT IN because NULL would make the predicate return no rows.`;
+    }
+
+    return `${clauseType} contains ${valueLabel}; NULL entries do not match rows in SQL.`;
+}

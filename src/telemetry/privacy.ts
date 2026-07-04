@@ -1,16 +1,9 @@
 import { createHash } from 'crypto';
 import { TelemetryEvent, TelemetryScalar } from './types';
+import { TELEMETRY_FIELD_LIMITS } from './schema-contract';
 
 const SYDNEY_TIME_ZONE = 'Australia/Sydney';
 const DEFAULT_SYDNEY_OFFSET = '+10:00';
-
-export const TELEMETRY_FIELD_LIMITS = {
-  event_name: 50,
-  user_id: 64,
-  extension_version: 20,
-  vscode_version: 30,
-  platform: 20
-} as const;
 
 function normaliseUtcOffset(offsetLabel: string): string {
   const match = offsetLabel.replace('GMT', '').match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/);

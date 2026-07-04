@@ -173,15 +173,17 @@ This extension contributes the following settings:
 - `inQueryGenerator.distinctValues`: Remove duplicate values before generating statements.
 - `inQueryGenerator.distinctCaseSensitive`: Case sensitivity for deduplication.
 - `inQueryGenerator.distinctTrimWhitespace`: Ignore whitespace when deduplicating.
+- `inQueryGenerator.globalKeybindings`: Enable shortcuts in all file types instead of only SQL-family editors.
 
 ---
 
 ## Keyboard Shortcuts
 
-- Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement
-- Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement
-- **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 3-stage workflow with data type override
-- Ctrl+Shift+B (Cmd+Shift+B): Process selected table data as IN statement
+- Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement in SQL-family editors
+- Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement in SQL-family editors
+- **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 3-stage workflow with data type override in SQL-family editors
+
+By default, shortcuts apply only in SQL-family editors so they do not override VS Code shortcuts in other languages. If you also use the extension in untitled or plain-text tabs, enable `inQueryGenerator.globalKeybindings` to restore the old global shortcut behaviour.
 
 ---
 
@@ -299,6 +301,15 @@ Asset_Number IN (1336, 138804, 8869)
 ---
 
 ## Changelog
+
+### Version 0.16.1 - July 2026
+
+#### Keyboard Shortcut Polishing
+
+- Scoped default keyboard shortcuts to SQL-family editors so they no longer override common VS Code shortcuts in unrelated languages.
+- Added the `inQueryGenerator.globalKeybindings` setting for users who want the old everywhere behaviour back with one toggle.
+- Removed the conflicting default `Ctrl+Shift+B` binding while keeping the batch command available from the command palette and menus.
+- Added a one-time upgrade notice explaining the shortcut scope change and how to re-enable global bindings.
 
 ### Version 0.16.0 - May 2026
 

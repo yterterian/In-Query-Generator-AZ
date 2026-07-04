@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import {
-  TELEMETRY_FIELD_LIMITS,
   buildSafeErrorProperties,
   clampTelemetryString,
   formatSydneyTimestamp,
@@ -8,6 +7,14 @@ import {
   hashAnonymousUserId,
   sanitizeTelemetryEvent
 } from '../../telemetry/privacy';
+import { buildTelemetryInsertEvent } from '../../telemetry/event-builder';
+import {
+  EXTENSION_TELEMETRY_COLUMN_TYPES,
+  EXTENSION_TELEMETRY_SERVER_MANAGED_COLUMNS,
+  EXTENSION_TELEMETRY_TABLE,
+  EXTENSION_TELEMETRY_WRITABLE_COLUMNS,
+  TELEMETRY_FIELD_LIMITS
+} from '../../telemetry/schema-contract';
 import { TelemetryEvent } from '../../telemetry/types';
 
 describe('Telemetry Privacy Tests', () => {
@@ -69,6 +76,59 @@ describe('Telemetry Privacy Tests', () => {
     assert.strictEqual(sanitized.vscode_version.length, TELEMETRY_FIELD_LIMITS.vscode_version);
     assert.strictEqual(sanitized.platform.length, TELEMETRY_FIELD_LIMITS.platform);
     assert.strictEqual(sanitized.session_id.length, 200);
+  });
+
+  it('buildTelemetryInsertEvent only emits the expected insert payload keys', () => {
+    const event = buildTelemetryInsertEvent({
+      id: 'evt_123',
+      eventName: 'extension_activated',
+      timestamp: '2026-07-04T12:00:00+10:00',
+      sessionId: 'session-123',
+      userId: 'u'.repeat(64),
+      extensionVersion: '0.16.1',
+      vscodeVersion: '1.127.0',
+      platform: 'win32',
+      properties: { first_activation: true },
+      measurements: { duration_ms: 12 }
+    });
+
+    assert.deepStrictEqual(
+      Object.keys(event).sort(),
+      [
+        'event_name',
+        'extension_version',
+        'id',
+        'measurements',
+        'platform',
+        'properties',
+        'session_id',
+        'timestamp',
+        'user_id',
+        'vscode_version'
+      ]
+    );
+  });
+
+  it('documents the live Supabase schema contract for extension telemetry', () => {
+    assert.strictEqual(EXTENSION_TELEMETRY_TABLE, 'extension_telemetry');
+    assert.deepStrictEqual(EXTENSION_TELEMETRY_SERVER_MANAGED_COLUMNS, ['created_at']);
+    assert.deepStrictEqual(EXTENSION_TELEMETRY_WRITABLE_COLUMNS, [
+      'id',
+      'event_name',
+      'timestamp',
+      'session_id',
+      'user_id',
+      'extension_version',
+      'vscode_version',
+      'platform',
+      'properties',
+      'measurements',
+      'context'
+    ]);
+    assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.session_id, 'text');
+    assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.user_id, 'character varying');
+    assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.properties, 'jsonb');
+    assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.created_at, 'timestamp with time zone');
   });
 
   it('getDurationSeconds returns a non-negative rounded duration', () => {

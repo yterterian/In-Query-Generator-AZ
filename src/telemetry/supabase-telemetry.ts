@@ -3,7 +3,8 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
-import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId, sanitizeTelemetryEvent } from './privacy';
+import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
+import { buildTelemetryInsertEvent } from './event-builder';
 import * as vscode from 'vscode';
 
 const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
@@ -53,14 +54,14 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   ): Promise<void> {
     if (!isTelemetryEnabled()) return;
 
-    const event = sanitizeTelemetryEvent({
+    const event = buildTelemetryInsertEvent({
       id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-      event_name: eventName,
+      eventName,
       timestamp: formatSydneyTimestamp(),
-      session_id: vscode.env.sessionId || '',
-      user_id: this.getAnonymousUserId(),
-      extension_version: vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version || 'unknown',
-      vscode_version: this.getAppVersion(),
+      sessionId: vscode.env.sessionId || '',
+      userId: this.getAnonymousUserId(),
+      extensionVersion: vscode.extensions.getExtension(EXTENSION_ID)?.packageJSON.version || 'unknown',
+      vscodeVersion: this.getAppVersion(),
       platform: process.platform,
       properties,
       measurements
