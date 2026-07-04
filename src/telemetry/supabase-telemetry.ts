@@ -3,7 +3,7 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
-import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
+import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId, sanitizeTelemetryEvent } from './privacy';
 import * as vscode from 'vscode';
 
 const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
@@ -34,8 +34,13 @@ function isTelemetryEnabled(): boolean {
 export class SupabaseTelemetryCollector implements TelemetryCollector {
   private queue: TelemetryEvent[] = [];
   private flushTimer: NodeJS.Timeout | undefined;
+  private flushing = false;
+  private activeFlush: Promise<void> | undefined;
+  private consecutiveFailures = 0;
   private readonly batchSize = 20;
   private readonly flushInterval = 60000; // 1 minute
+  private readonly maxQueueSize = 200;
+  private readonly maxRetries = 3;
 
   constructor() {
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
@@ -48,7 +53,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   ): Promise<void> {
     if (!isTelemetryEnabled()) return;
 
-    const event: TelemetryEvent = {
+    const event = sanitizeTelemetryEvent({
       id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
       event_name: eventName,
       timestamp: formatSydneyTimestamp(),
@@ -59,9 +64,10 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
       platform: process.platform,
       properties,
       measurements
-    };
+    });
 
     this.queue.push(event);
+    this.trimQueueToLimit();
     if (this.queue.length >= this.batchSize) {
       await this.flush();
     }
@@ -95,28 +101,95 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   }
 
   async flush(): Promise<void> {
+    if (this.activeFlush) {
+      await this.activeFlush;
+      return;
+    }
+
     if (!isTelemetryEnabled() || this.queue.length === 0) return;
-    const eventsToSend = this.queue.splice(0, this.batchSize);
+
+    const flushPromise = this.runFlushLoop();
+    this.activeFlush = flushPromise;
+
+    try {
+      await flushPromise;
+    } finally {
+      if (this.activeFlush === flushPromise) {
+        this.activeFlush = undefined;
+      }
+    }
+  }
+
+  private async runFlushLoop(): Promise<void> {
+    this.flushing = true;
+
+    try {
+      while (isTelemetryEnabled() && this.queue.length > 0) {
+        const eventsToSend = this.queue.splice(0, this.batchSize);
+        const shouldContinue = await this.sendBatch(eventsToSend);
+        if (!shouldContinue) {
+          break;
+        }
+      }
+    } finally {
+      this.flushing = false;
+    }
+  }
+
+  private async sendBatch(eventsToSend: TelemetryEvent[]): Promise<boolean> {
     try {
       const client = await getSupabaseClient();
       const { error, status } = await client.from('extension_telemetry').insert(eventsToSend);
       if (error) {
-        telemetryOutputChannel.appendLine(`[Telemetry] Supabase error: ${error.message} (status: ${status})`);
-        telemetryOutputChannel.show(true);
-        // Re-queue events for retry
-        this.queue.unshift(...eventsToSend);
+        const isPermanent = typeof status === 'number' && status >= 400 && status < 500 && status !== 429;
+        if (isPermanent) {
+          telemetryOutputChannel.appendLine(
+            `[Telemetry] Dropped ${eventsToSend.length} event(s) after permanent error: ${error.message} (status: ${status})`
+          );
+          this.consecutiveFailures = 0;
+          return true;
+        }
+
+        this.handleTransientFailure(eventsToSend, `${error.message} (status: ${status})`);
+        return false;
       }
-      // On success, do not log anything
+
+      this.consecutiveFailures = 0;
+      return true;
     } catch (err) {
-      telemetryOutputChannel.appendLine(`[Telemetry] Failed to send events: ${err instanceof Error ? err.message : String(err)}`);
-      telemetryOutputChannel.show(true);
-      // Re-queue events for retry
-      this.queue.unshift(...eventsToSend);
+      this.handleTransientFailure(eventsToSend, err instanceof Error ? err.message : String(err));
+      return false;
+    }
+  }
+
+  private handleTransientFailure(events: TelemetryEvent[], message: string): void {
+    this.consecutiveFailures += 1;
+    telemetryOutputChannel.appendLine(
+      `[Telemetry] Send failed (attempt ${this.consecutiveFailures}/${this.maxRetries}): ${message}`
+    );
+
+    if (this.consecutiveFailures <= this.maxRetries) {
+      this.queue.unshift(...events);
+      this.trimQueueToLimit();
+      return;
+    }
+
+    telemetryOutputChannel.appendLine(`[Telemetry] Retry limit reached; dropping ${events.length} event(s).`);
+    this.consecutiveFailures = 0;
+  }
+
+  private trimQueueToLimit(): void {
+    const overflow = this.queue.length - this.maxQueueSize;
+    if (overflow > 0) {
+      this.queue.splice(0, overflow);
     }
   }
 
   async dispose(): Promise<void> {
     if (this.flushTimer) clearInterval(this.flushTimer);
+    if (this.activeFlush) {
+      await this.activeFlush;
+    }
     await this.flush();
   }
 }

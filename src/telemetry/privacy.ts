@@ -1,8 +1,16 @@
 import { createHash } from 'crypto';
-import { TelemetryScalar } from './types';
+import { TelemetryEvent, TelemetryScalar } from './types';
 
 const SYDNEY_TIME_ZONE = 'Australia/Sydney';
 const DEFAULT_SYDNEY_OFFSET = '+10:00';
+
+export const TELEMETRY_FIELD_LIMITS = {
+  event_name: 50,
+  user_id: 64,
+  extension_version: 20,
+  vscode_version: 30,
+  platform: 20
+} as const;
 
 function normaliseUtcOffset(offsetLabel: string): string {
   const match = offsetLabel.replace('GMT', '').match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/);
@@ -61,6 +69,23 @@ export function buildSafeErrorProperties(
   }
 
   return properties;
+}
+
+export function clampTelemetryString(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : value.slice(0, maxLength);
+}
+
+export function sanitizeTelemetryEvent(event: TelemetryEvent): TelemetryEvent {
+  return {
+    ...event,
+    event_name: clampTelemetryString(event.event_name, TELEMETRY_FIELD_LIMITS.event_name),
+    user_id: typeof event.user_id === 'string'
+      ? clampTelemetryString(event.user_id, TELEMETRY_FIELD_LIMITS.user_id)
+      : event.user_id,
+    extension_version: clampTelemetryString(event.extension_version, TELEMETRY_FIELD_LIMITS.extension_version),
+    vscode_version: clampTelemetryString(event.vscode_version, TELEMETRY_FIELD_LIMITS.vscode_version),
+    platform: clampTelemetryString(event.platform, TELEMETRY_FIELD_LIMITS.platform)
+  };
 }
 
 export function getDurationSeconds(startTimeIso: string, endDate: Date = new Date()): number | undefined {

@@ -1,5 +1,14 @@
 import * as assert from 'assert';
-import { buildSafeErrorProperties, formatSydneyTimestamp, getDurationSeconds, hashAnonymousUserId } from '../../telemetry/privacy';
+import {
+  TELEMETRY_FIELD_LIMITS,
+  buildSafeErrorProperties,
+  clampTelemetryString,
+  formatSydneyTimestamp,
+  getDurationSeconds,
+  hashAnonymousUserId,
+  sanitizeTelemetryEvent
+} from '../../telemetry/privacy';
+import { TelemetryEvent } from '../../telemetry/types';
 
 describe('Telemetry Privacy Tests', () => {
   it('hashAnonymousUserId returns a stable SHA-256 hash', () => {
@@ -33,6 +42,33 @@ describe('Telemetry Privacy Tests', () => {
       error_context: 'activation',
       error_code: 'E_PARSE'
     });
+  });
+
+  it('clampTelemetryString truncates values that exceed the schema limit', () => {
+    assert.strictEqual(clampTelemetryString('abcdef', 4), 'abcd');
+    assert.strictEqual(clampTelemetryString('abcd', 4), 'abcd');
+  });
+
+  it('sanitizeTelemetryEvent clamps fixed-width top-level fields and preserves session_id', () => {
+    const event: TelemetryEvent = {
+      id: 'evt_123',
+      event_name: 'x'.repeat(TELEMETRY_FIELD_LIMITS.event_name + 5),
+      timestamp: '2026-07-04T12:00:00+10:00',
+      session_id: 's'.repeat(200),
+      user_id: 'u'.repeat(TELEMETRY_FIELD_LIMITS.user_id + 5),
+      extension_version: '1'.repeat(TELEMETRY_FIELD_LIMITS.extension_version + 5),
+      vscode_version: '2'.repeat(TELEMETRY_FIELD_LIMITS.vscode_version + 5),
+      platform: '3'.repeat(TELEMETRY_FIELD_LIMITS.platform + 5)
+    };
+
+    const sanitized = sanitizeTelemetryEvent(event);
+
+    assert.strictEqual(sanitized.event_name.length, TELEMETRY_FIELD_LIMITS.event_name);
+    assert.strictEqual(sanitized.user_id?.length, TELEMETRY_FIELD_LIMITS.user_id);
+    assert.strictEqual(sanitized.extension_version.length, TELEMETRY_FIELD_LIMITS.extension_version);
+    assert.strictEqual(sanitized.vscode_version.length, TELEMETRY_FIELD_LIMITS.vscode_version);
+    assert.strictEqual(sanitized.platform.length, TELEMETRY_FIELD_LIMITS.platform);
+    assert.strictEqual(sanitized.session_id.length, 200);
   });
 
   it('getDurationSeconds returns a non-negative rounded duration', () => {
