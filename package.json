@@ -3,7 +3,7 @@
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
   "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for VS Code.",
-  "version": "0.16.1",
+  "version": "0.16.2",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.95.0",
@@ -104,7 +104,7 @@
           "default": [
             "dropdown"
           ],
-          "description": "List of actions to show in the status bar. Use 'dropdown' for a multi-action dropdown, or specify command IDs (e.g., 'extension.copyAsInStatement', 'extension.pasteAsInStatementDirect') for pinned actions."
+          "description": "Status bar mode. Use 'dropdown' for the default menu, or put a command ID first (for example 'extension.copyAsInStatement' or 'extension.pasteAsInStatementDirect') to pin that action. If multiple command IDs are provided, only the first is currently used."
         },
         "inQueryGenerator.distinctValues": {
           "type": "boolean",

@@ -1,6 +1,6 @@
 # Privacy Statement - SQL IN Clause Generator
 
-**Last updated:** 04/07/2026
+**Last updated:** 05/07/2026
 
 ---
 
@@ -124,7 +124,7 @@ If you have questions about this privacy statement or the extension’s telemetr
 
 - **Extension Name:** SQL IN Clause Generator
 - **Publisher:** YakovT
-- **Version:** 0.16.1
+- **Version:** 0.16.2
 - **License:** MIT
 
 ---

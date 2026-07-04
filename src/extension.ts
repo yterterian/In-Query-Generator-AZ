@@ -299,57 +299,89 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
 
 // Paste Special dropdown
 /**
- * Paste Special dropdown with 3-stage flow:
- * Stage 1: Choose distinct vs all values
- * Stage 2: Choose action type (IN, NOT IN, Column+IN, Column+NOT IN)
- * Stage 3: Choose data type override (Auto, Force Text, Force Number)
+ * Paste Special dropdown with a collapsed duplicate-handling toggle:
+ * Stage 1: Choose action type (with an inline distinct/all modifier)
+ * Stage 2: Choose data type override (Auto, Force Text, Force Number)
  */
 async function showPasteSpecialDropdown() {
     let stageReached = 1;
-    const emitFunnel = (completed: boolean) => {
+    const initialDistinctOverride = vscode.workspace
+        .getConfiguration('inQueryGenerator')
+        .get<boolean>('distinctValues', true);
+    const emitFunnel = (completed: boolean, distinctOverride: boolean) => {
         void telemetryCollector?.logEvent('paste_special_funnel', {
             stage_reached: stageReached,
-            completed
+            completed,
+            flow_version: 2,
+            used_distinct: distinctOverride
         });
     };
 
-    // STAGE 1: Distinct choice
-    const distinctChoice = await vscode.window.showQuickPick(
-        [
-            { label: 'Distinct values (remove duplicates)', value: true },
-            { label: 'All values (keep duplicates)', value: false }
-        ],
-        {
-            placeHolder: 'Stage 1 of 3: Choose whether to remove duplicate values',
+    type PasteSpecialActionOption = {
+        itemType: 'action';
+        label: string;
+        command: 'extension.pasteAsInStatementDirect' | 'extension.pasteAsNotInStatementDirect' | 'extension.pasteColumnInStatement' | 'extension.pasteColumnNotInStatement';
+        option: string;
+    };
+    type PasteSpecialModifierOption = {
+        itemType: 'modifier';
+        label: string;
+        description: string;
+        detail: string;
+    };
+    type PasteSpecialCancelOption = {
+        itemType: 'cancel';
+        label: string;
+        option: 'cancel';
+    };
+
+    let distinctOverride = initialDistinctOverride;
+
+    let actionChoice: PasteSpecialActionOption | undefined;
+    while (!actionChoice) {
+        const modifierOption: PasteSpecialModifierOption = distinctOverride
+            ? {
+                itemType: 'modifier',
+                label: '$(check) Distinct values (current)',
+                description: 'Modifier: switch to all values for this run only',
+                detail: 'Your saved setting will not change.'
+            }
+            : {
+                itemType: 'modifier',
+                label: '$(list-flat) All values (current)',
+                description: 'Modifier: switch to distinct values for this run only',
+                detail: 'Your saved setting will not change.'
+            };
+
+        const actionOptions: Array<PasteSpecialModifierOption | PasteSpecialActionOption | PasteSpecialCancelOption> = [
+            modifierOption,
+            { itemType: 'action', label: 'Paste IN Statement', command: 'extension.pasteAsInStatementDirect', option: 'paste_in_statement' },
+            { itemType: 'action', label: 'Paste NOT IN Statement', command: 'extension.pasteAsNotInStatementDirect', option: 'paste_not_in_statement' },
+            { itemType: 'action', label: 'Paste Column + IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnInStatement', option: 'paste_column_in_statement' },
+            { itemType: 'action', label: 'Paste Column + NOT IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnNotInStatement', option: 'paste_column_not_in_statement' },
+            { itemType: 'cancel', label: 'Cancel', option: 'cancel' }
+        ];
+
+        const selectedOption = await vscode.window.showQuickPick<PasteSpecialModifierOption | PasteSpecialActionOption | PasteSpecialCancelOption>(actionOptions, {
+            placeHolder: 'Stage 1 of 2: Select paste action',
             ignoreFocusOut: true
+        });
+
+        if (!selectedOption || selectedOption.itemType === 'cancel') {
+            emitFunnel(false, distinctOverride);
+            return;
         }
-    );
-    if (!distinctChoice) {
-        emitFunnel(false);
-        return;
+
+        if (selectedOption.itemType === 'modifier') {
+            distinctOverride = !distinctOverride;
+            continue;
+        }
+
+        actionChoice = selectedOption;
     }
-    const distinctOverride = distinctChoice.value;
     stageReached = 2;
 
-    // STAGE 2: Action choice
-    const actionOptions = [
-        { label: 'Paste IN Statement', command: 'extension.pasteAsInStatementDirect', option: 'paste_in_statement' },
-        { label: 'Paste NOT IN Statement', command: 'extension.pasteAsNotInStatementDirect', option: 'paste_not_in_statement' },
-        { label: 'Paste Column + IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnInStatement', option: 'paste_column_in_statement' },
-        { label: 'Paste Column + NOT IN Statement (use Copy with Header to select data)', command: 'extension.pasteColumnNotInStatement', option: 'paste_column_not_in_statement' },
-        { label: 'Cancel', command: undefined, option: 'cancel' }
-    ];
-    const actionChoice = await vscode.window.showQuickPick(actionOptions, {
-        placeHolder: 'Stage 2 of 3: Select paste action',
-        ignoreFocusOut: true
-    });
-    if (!actionChoice || !actionChoice.command) {
-        emitFunnel(false);
-        return;
-    }
-    stageReached = 3;
-
-    // STAGE 3: Data type override choice
+    // STAGE 2: Data type override choice
     const dataTypeChoice = await vscode.window.showQuickPick(
         [
             {
@@ -372,16 +404,17 @@ async function showPasteSpecialDropdown() {
             }
         ],
         {
-            placeHolder: 'Stage 3 of 3: Choose data type formatting',
+            placeHolder: 'Stage 2 of 2: Choose data type formatting',
             ignoreFocusOut: true
         }
     );
     if (!dataTypeChoice) {
-        emitFunnel(false);
+        emitFunnel(false, distinctOverride);
         return;
     }
     const dataTypeModeOverride = dataTypeChoice.value;
-    emitFunnel(true);
+    stageReached = 3;
+    emitFunnel(true, distinctOverride);
 
     // Execute the chosen action with all overrides
     switch (actionChoice.command) {

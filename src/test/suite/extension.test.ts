@@ -204,7 +204,7 @@ describe('Extension Host Tests', () => {
         });
     });
 
-    it('paste special keeps Stage 2 quick pick open when focus changes', async () => {
+    it('paste special keeps both quick picks open when focus changes', async () => {
         await activateExtension();
 
         const quickPickOptions: vscode.QuickPickOptions[] = [];
@@ -214,7 +214,12 @@ describe('Extension Host Tests', () => {
             async (_items: readonly unknown[], options?: vscode.QuickPickOptions) => {
                 quickPickOptions.push(options ?? {});
                 if (quickPickOptions.length === 1) {
-                    return { label: 'Distinct values (remove duplicates)', value: true };
+                    return {
+                        itemType: 'action',
+                        label: 'Paste IN Statement',
+                        command: 'extension.pasteAsInStatementDirect',
+                        option: 'paste_in_statement'
+                    };
                 }
 
                 return undefined;
@@ -226,6 +231,89 @@ describe('Extension Host Tests', () => {
 
         assert.strictEqual(quickPickOptions[0]?.ignoreFocusOut, true);
         assert.strictEqual(quickPickOptions[1]?.ignoreFocusOut, true);
+    });
+
+    it('paste special defaults to the configured distinct setting without a separate duplicate stage', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: true
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText('1336\n1336\n8869');
+
+            const firstQuickPickLabels: string[] = [];
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async (items: readonly unknown[]) => {
+                    const options = items as Array<{ label?: string; itemType?: string; command?: string; value?: string }>;
+                    if (firstQuickPickLabels.length === 0) {
+                        firstQuickPickLabels.push(...options.map(option => option.label ?? ''));
+                        return options.find(option => option.itemType === 'action' && option.command === 'extension.pasteAsInStatementDirect');
+                    }
+
+                    return {
+                        label: '$(symbol-misc) Auto-detect (Smart)',
+                        value: 'auto'
+                    };
+                },
+                async () => {
+                    await vscode.commands.executeCommand('extension.pasteSpecialInStatement');
+                }
+            );
+
+            await waitForDocumentText(editor.document, 'IN (1336, 8869)');
+            assert.ok(firstQuickPickLabels[0]?.includes('Distinct values (current)'));
+            assert.ok(!firstQuickPickLabels.includes('Distinct values (remove duplicates)'));
+            assert.ok(!firstQuickPickLabels.includes('All values (keep duplicates)'));
+        });
+    });
+
+    it('paste special modifier row toggles duplicate handling for one run only', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: true
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText('1336\n1336\n8869');
+
+            let quickPickCall = 0;
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async (items: readonly unknown[]) => {
+                    quickPickCall += 1;
+                    const options = items as Array<{ label?: string; itemType?: string; command?: string; value?: string }>;
+
+                    if (quickPickCall === 1) {
+                        return options.find(option => option.itemType === 'modifier');
+                    }
+
+                    if (quickPickCall === 2) {
+                        assert.ok(options[0]?.label?.includes('All values (current)'));
+                        return options.find(option => option.itemType === 'action' && option.command === 'extension.pasteAsInStatementDirect');
+                    }
+
+                    return {
+                        label: '$(symbol-misc) Auto-detect (Smart)',
+                        value: 'auto'
+                    };
+                },
+                async () => {
+                    await vscode.commands.executeCommand('extension.pasteSpecialInStatement');
+                }
+            );
+
+            await waitForDocumentText(editor.document, 'IN (1336, 1336, 8869)');
+            assert.strictEqual(
+                vscode.workspace.getConfiguration(configSection).get<boolean>('distinctValues', false),
+                true
+            );
+        });
     });
 
     it('batch flow uses the typed column name without mutating the global defaultColumnName setting', async () => {

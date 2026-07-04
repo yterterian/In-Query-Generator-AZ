@@ -10,14 +10,13 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 
 ---
 
-## What's New In v0.16.1
+## What's New In v0.16.2
 
-- Default keyboard shortcuts now apply only in SQL-family editors, so they no longer override common VS Code shortcuts in unrelated languages.
-- Added `inQueryGenerator.globalKeybindings` for users who want the old global shortcut behaviour back.
-- Hardened telemetry delivery: bounded queue, retry cap, permanent-error drop, and no focus-stealing telemetry UI.
-- Added privacy-safe per-generation telemetry and recovered session summaries that can be delivered on the next activation if VS Code shuts down before a flush completes.
-- `NOT IN` generation now strips blank and `NULL`-like values that would otherwise make the predicate return no rows.
-- Added schema-contract telemetry tests so Supabase payload changes are caught deliberately.
+- Collapsed Paste Special into a faster 2-stage flow that defaults to your configured deduplication setting.
+- Added an inline Stage 1 modifier so you can switch between distinct and all values for a single run without changing saved settings.
+- Added extension-host coverage for the new Paste Special flow, including focus retention and one-run duplicate overrides.
+- Aligned the status bar setting docs with the current behaviour: when multiple pinned commands are configured, only the first is shown.
+- Kept the telemetry and schema-contract hardening from `0.16.1` intact while tightening release metadata and docs for this patch release.
 
 ---
 
@@ -64,20 +63,19 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 - Right-click and select **Copy as IN Statement** (or use Ctrl+Shift+I).
 - Preview the generated IN clause and choose to copy or insert it.
 
-### 3. **Paste Special In Statement** (3-Stage Flow)
+### 3. **Paste Special In Statement** (2-Stage Flow)
 
-- Right-click and select **Paste Special In Statement** (or use Ctrl+Alt+V) for advanced options with a 3-stage workflow:
+- Right-click and select **Paste Special In Statement** (or use Ctrl+Alt+V) for advanced options with a 2-stage workflow:
 
-  **Stage 1: Deduplication Choice**
-  - Choose whether to remove duplicate values (distinct) or keep all values for this operation.
-
-  **Stage 2: Action Selection**
+  **Stage 1: Action Selection**
+  - The menu defaults to your configured `inQueryGenerator.distinctValues` setting.
+  - Use the first row in the list to switch between **Distinct values** and **All values** for the current run only.
   - **Paste IN Statement**: Standard IN clause.
   - **Paste NOT IN Statement**: Standard NOT IN clause.
   - **Paste Column + IN Statement**: Select a column from tabular data (with headers).
   - **Paste Column + NOT IN Statement**: Same as above, but for NOT IN.
 
-  **Stage 3: Data Type Override**
+  **Stage 2: Data Type Override**
   - **Auto-detect (Smart)**: Default behavior - automatically detects and formats numbers, dates, GUIDs, and text appropriately.
   - **Force Text (Quote All)**: Forces ALL values to be quoted as text - perfect for numeric IDs like `123` that should be `'123'`.
   - **Force Number (Unquote All)**: Forces all values to be unquoted as numbers (non-numeric values are automatically quoted as fallback).
@@ -146,7 +144,7 @@ You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`. 
   - `inQueryGenerator.distinctTrimWhitespace`: Ignore leading/trailing whitespace when deduplicating.
 
 - **Per-Use Override:**  
-  - When using **Paste Special In Statement**, you can choose to remove duplicates or keep all values for that operation.
+  - When using **Paste Special In Statement**, the first row in the Stage 1 menu lets you switch between distinct and all values for that operation without changing your saved setting.
 
 - **Feedback:**  
   - The extension displays a message indicating how many duplicates were removed.
@@ -175,7 +173,7 @@ This extension contributes the following settings:
   - `oneValuePerLine`: Put each value on a separate line.
   - `maxValuesPerLine`: Maximum number of values per line when not using oneValuePerLine.
   - `indentSize`: Number of spaces to use for indentation in multi-line format.
-- `inQueryGenerator.statusBarActions`: Status bar mode. Use `["dropdown"]` for the default menu, or put a command ID first to pin that action.
+- `inQueryGenerator.statusBarActions`: Status bar mode. Use `["dropdown"]` for the default menu, or put a command ID first to pin that action. If you provide multiple command IDs, only the first is currently used.
 - `inQueryGenerator.distinctValues`: Remove duplicate values before generating statements.
 - `inQueryGenerator.distinctCaseSensitive`: Case sensitivity for deduplication.
 - `inQueryGenerator.distinctTrimWhitespace`: Ignore whitespace when deduplicating.
@@ -187,7 +185,7 @@ This extension contributes the following settings:
 
 - Ctrl+Shift+I (Cmd+Shift+I): Copy selected text as IN statement in SQL-family editors
 - Ctrl+Shift+V (Cmd+Shift+V): Paste clipboard content as IN statement in SQL-family editors
-- **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 3-stage workflow with data type override in SQL-family editors
+- **Ctrl+Alt+V (Cmd+Alt+V): Paste Special In Statement** - Access the 2-stage workflow with inline deduplication toggle and data type override in SQL-family editors
 - No default shortcut is assigned to **Process Table Data as IN Statement**
 
 By default, shortcuts apply only in SQL-family editors so they do not override VS Code shortcuts in other languages. If you also use the extension in untitled or plain-text tabs, enable `inQueryGenerator.globalKeybindings` to restore the old global shortcut behaviour.
@@ -310,6 +308,19 @@ Asset_Number IN (1336, 138804, 8869)
 ---
 
 ## Changelog
+
+### Version 0.16.2 - July 2026
+
+#### Paste Special Flow
+
+- Collapsed Paste Special from a 3-stage flow to a 2-stage flow by defaulting to the configured `inQueryGenerator.distinctValues` setting.
+- Added an inline Stage 1 modifier row so users can switch between distinct and all values for the current run only.
+- Preserved focus-safe quick-pick behaviour in both stages and added regression coverage for the new interaction.
+
+#### Documentation And Packaging
+
+- Updated the README, settings text, and privacy statement to reflect the new Paste Special flow and current status bar behaviour.
+- Synced package metadata for the `0.16.2` release package.
 
 ### Version 0.16.1 - July 2026
 
