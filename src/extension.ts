@@ -11,6 +11,7 @@ import { parseText as pureParseText, DataTypeMode } from './pure';
 import {
     applyClauseNullSafety,
     formatValueWithConfig,
+    getDataTypeModeFromConfig,
     generateStatement,
     generateStatementWithMode,
     prepareValuesForStatement
@@ -25,7 +26,7 @@ import {
     recordSessionSqlGeneration,
     SessionTelemetryState
 } from './commandEffects';
-import { getDurationSeconds } from './telemetry/privacy';
+import { sendPendingSessionSummaries, persistSessionSummary } from './telemetry/sessionSummary';
 import { showKeybindingScopeNoticeOnce } from './migrationNotices';
 import { trackUsageAndPromptRating } from './ratingPrompt';
 import { createStatusBarItem, updateStatusBarItem } from './statusBarManager';
@@ -45,6 +46,10 @@ const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
 function recordExtensionError(error: unknown, context: string): void {
     if (sessionTelemetry) {
         sessionTelemetry.error_count += 1;
+    }
+
+    if (extensionContext && sessionTelemetry) {
+        void persistSessionSummary(extensionContext, sessionTelemetry);
     }
 
     if (!telemetryCollector) {
@@ -69,10 +74,44 @@ function showClauseNullWarning(
     );
 }
 
+function resolveTelemetryDataTypeMode(dataTypeModeOverride?: DataTypeMode): DataTypeMode {
+    if (dataTypeModeOverride) {
+        return dataTypeModeOverride;
+    }
+
+    return getDataTypeModeFromConfig(vscode.workspace.getConfiguration('inQueryGenerator'));
+}
+
+function persistCurrentSessionSummary(): void {
+    if (extensionContext && sessionTelemetry) {
+        void persistSessionSummary(extensionContext, sessionTelemetry);
+    }
+}
+
+function logSqlGenerationTelemetry(details: {
+    command: string;
+    clauseType: 'IN' | 'NOT IN';
+    dataTypeMode: DataTypeMode;
+    usedDistinct: boolean;
+    duplicatesRemoved: number;
+    uniqueValueCount: number;
+    origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
+}): void {
+    void telemetryCollector?.logSqlGeneration({
+        command: details.command,
+        clauseType: details.clauseType,
+        dataTypeMode: details.dataTypeMode,
+        usedDistinct: details.usedDistinct,
+        duplicatesRemoved: details.duplicatesRemoved,
+        uniqueValueCount: details.uniqueValueCount,
+        origin: details.origin
+    });
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
     // Initialize telemetry
-    telemetryCollector = new SupabaseTelemetryCollector();
+    telemetryCollector = new SupabaseTelemetryCollector(context.extensionMode);
     await telemetryCollector.logEvent('extension_activated', {
         first_activation: !context.globalState.get('hasActivatedBefore', false),
         workspace_type: vscode.workspace.workspaceFolders ? 'workspace' : 'no-workspace'
@@ -90,6 +129,8 @@ export async function activate(context: vscode.ExtensionContext) {
         duplicates_removed_total: 0,
         error_count: 0
     };
+
+    void sendPendingSessionSummaries(context, telemetryCollector, sessionTelemetry.session_id);
 
     // Register commands
     let copyDisposable = vscode.commands.registerCommand('extension.copyAsInStatement', async () => {
@@ -226,6 +267,16 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             removed: preparedStatement.removed,
             useDistinct: preparedStatement.useDistinct
         });
+        logSqlGenerationTelemetry({
+            command: 'pasteAs' + (forceNotIn ? 'NotIn' : 'In') + 'StatementDirect',
+            clauseType: forceNotIn ? 'NOT IN' : 'IN',
+            dataTypeMode: resolveTelemetryDataTypeMode(dataTypeModeOverride),
+            usedDistinct: preparedStatement.useDistinct,
+            duplicatesRemoved: preparedStatement.removed,
+            uniqueValueCount: parsedData.length,
+            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'direct'
+        });
+        persistCurrentSessionSummary();
         vscode.window.showInformationMessage(buildPasteInsertedMessage({
             clauseType: forceNotIn ? 'NOT IN' : 'IN',
             removed: preparedStatement.removed,
@@ -254,6 +305,14 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
  * Stage 3: Choose data type override (Auto, Force Text, Force Number)
  */
 async function showPasteSpecialDropdown() {
+    let stageReached = 1;
+    const emitFunnel = (completed: boolean) => {
+        void telemetryCollector?.logEvent('paste_special_funnel', {
+            stage_reached: stageReached,
+            completed
+        });
+    };
+
     // STAGE 1: Distinct choice
     const distinctChoice = await vscode.window.showQuickPick(
         [
@@ -265,9 +324,12 @@ async function showPasteSpecialDropdown() {
             ignoreFocusOut: true
         }
     );
-    if (!distinctChoice) return;
+    if (!distinctChoice) {
+        emitFunnel(false);
+        return;
+    }
     const distinctOverride = distinctChoice.value;
-    const dedupType = distinctOverride ? 'distinct' : 'all';
+    stageReached = 2;
 
     // STAGE 2: Action choice
     const actionOptions = [
@@ -280,7 +342,11 @@ async function showPasteSpecialDropdown() {
     const actionChoice = await vscode.window.showQuickPick(actionOptions, {
         placeHolder: 'Stage 2 of 3: Select paste action'
     });
-    if (!actionChoice || !actionChoice.command) return;
+    if (!actionChoice || !actionChoice.command) {
+        emitFunnel(false);
+        return;
+    }
+    stageReached = 3;
 
     // STAGE 3: Data type override choice
     const dataTypeChoice = await vscode.window.showQuickPick(
@@ -309,18 +375,12 @@ async function showPasteSpecialDropdown() {
             ignoreFocusOut: true
         }
     );
-    if (!dataTypeChoice) return;
-    const dataTypeModeOverride = dataTypeChoice.value;
-
-    // Telemetry: log granular usage
-    if (typeof telemetryCollector !== 'undefined') {
-        telemetryCollector.logEvent('paste_special_option', {
-            option: actionChoice.option,
-            deduplication: dedupType,
-            data_type_mode: dataTypeModeOverride,
-            trigger: 'context_menu_or_command'
-        });
+    if (!dataTypeChoice) {
+        emitFunnel(false);
+        return;
     }
+    const dataTypeModeOverride = dataTypeChoice.value;
+    emitFunnel(true);
 
     // Execute the chosen action with all overrides
     switch (actionChoice.command) {
@@ -409,6 +469,16 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             removed: preparedStatement.removed,
             useDistinct: preparedStatement.useDistinct
         });
+        logSqlGenerationTelemetry({
+            command: 'pasteColumn' + (forceNotIn ? 'NotIn' : 'In') + 'Statement',
+            clauseType: forceNotIn ? 'NOT IN' : 'IN',
+            dataTypeMode: resolveTelemetryDataTypeMode(dataTypeModeOverride),
+            usedDistinct: preparedStatement.useDistinct,
+            duplicatesRemoved: preparedStatement.removed,
+            uniqueValueCount: values.length,
+            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'column'
+        });
+        persistCurrentSessionSummary();
         vscode.window.showInformationMessage(buildPasteInsertedMessage({
             clauseType: forceNotIn ? 'NOT IN' : 'IN',
             removed: preparedStatement.removed,
@@ -458,10 +528,20 @@ async function processSelection(context: vscode.ExtensionContext) {
                 await previewAndApplyStatement({ inStatement, editor, isCopyCommand: true });
                 recordSessionSqlGeneration(sessionTelemetry, {
                     commandName: 'copyAsInStatement',
-                    clauseType: 'IN',
+                    clauseType: useNotIn ? 'NOT IN' : 'IN',
                     removed: preparedStatement.removed,
                     useDistinct: preparedStatement.useDistinct
                 });
+                logSqlGenerationTelemetry({
+                    command: 'copyAsInStatement',
+                    clauseType: useNotIn ? 'NOT IN' : 'IN',
+                    dataTypeMode: resolveTelemetryDataTypeMode(),
+                    usedDistinct: preparedStatement.useDistinct,
+                    duplicatesRemoved: preparedStatement.removed,
+                    uniqueValueCount: data.length,
+                    origin: 'copy'
+                });
+                persistCurrentSessionSummary();
                 if (preparedStatement.useDistinct) {
                     vscode.window.showInformationMessage(buildDeduplicationMessage('Selection', preparedStatement.removed));
                 }
@@ -565,6 +645,16 @@ async function processBatchDataFromArray(data: string[][]) {
             removed: preparedStatement.removed,
             useDistinct: preparedStatement.useDistinct
         });
+        logSqlGenerationTelemetry({
+            command: 'batchProcessInStatement',
+            clauseType: 'IN',
+            dataTypeMode: resolveTelemetryDataTypeMode(),
+            usedDistinct: preparedStatement.useDistinct,
+            duplicatesRemoved: preparedStatement.removed,
+            uniqueValueCount: values.length,
+            origin: 'batch'
+        });
+        persistCurrentSessionSummary();
         if (preparedStatement.useDistinct) {
             vscode.window.showInformationMessage(buildDeduplicationMessage('Batch', preparedStatement.removed));
         }
@@ -601,26 +691,7 @@ export async function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
-    // Send session-based telemetry if there was any SQL generation activity
-    if (telemetryCollector && sessionTelemetry && sessionTelemetry.total_sql_generations > 0) {
-        sessionTelemetry.end_time = new Date().toISOString();
-        const sessionDurationSeconds = getDurationSeconds(sessionTelemetry.start_time, new Date(sessionTelemetry.end_time));
-        // Flatten nested objects for telemetry
-        const flatSession: Record<string, string | number | boolean> = {
-            total_sql_generations: sessionTelemetry.total_sql_generations,
-            by_command: JSON.stringify(sessionTelemetry.by_command),
-            by_clause_type: JSON.stringify(sessionTelemetry.by_clause_type),
-            deduped_count: sessionTelemetry.deduped_count,
-            duplicates_removed_total: sessionTelemetry.duplicates_removed_total,
-            error_count: sessionTelemetry.error_count
-        };
-        if (typeof sessionDurationSeconds === 'number') {
-            flatSession.session_duration_seconds = sessionDurationSeconds;
-        }
-        await telemetryCollector.logEvent('session_sql_utilization', flatSession);
-    }
     if (telemetryCollector) {
-        await telemetryCollector.logEvent('extension_deactivated');
         await telemetryCollector.dispose();
     }
 }

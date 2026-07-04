@@ -68,6 +68,18 @@ export function clampTelemetryString(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : value.slice(0, maxLength);
 }
 
+export function clampString(value: string, maxLength: number): string {
+  return clampTelemetryString(value, maxLength);
+}
+
+export function bucketValueCount(count: number): string {
+  if (count <= 0) return '0';
+  if (count <= 10) return '1-10';
+  if (count <= 100) return '11-100';
+  if (count <= 1000) return '101-1000';
+  return '1001+';
+}
+
 export function sanitizeTelemetryEvent(event: TelemetryEvent): TelemetryEvent {
   return {
     ...event,

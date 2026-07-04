@@ -3,7 +3,7 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
-import { buildSafeErrorProperties, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
+import { buildSafeErrorProperties, bucketValueCount, formatSydneyTimestamp, hashAnonymousUserId } from './privacy';
 import { buildTelemetryInsertEvent } from './event-builder';
 import * as vscode from 'vscode';
 
@@ -32,6 +32,16 @@ function isTelemetryEnabled(): boolean {
   return globalEnabled && extEnabled;
 }
 
+export interface SqlGenerationTelemetry {
+  command: string;
+  clauseType: 'IN' | 'NOT IN';
+  dataTypeMode: string;
+  usedDistinct: boolean;
+  duplicatesRemoved: number;
+  uniqueValueCount: number;
+  origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
+}
+
 export class SupabaseTelemetryCollector implements TelemetryCollector {
   private queue: TelemetryEvent[] = [];
   private flushTimer: NodeJS.Timeout | undefined;
@@ -42,8 +52,10 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   private readonly flushInterval = 60000; // 1 minute
   private readonly maxQueueSize = 200;
   private readonly maxRetries = 3;
+  private readonly isDev: boolean;
 
-  constructor() {
+  constructor(extensionMode: vscode.ExtensionMode = vscode.ExtensionMode.Production) {
+    this.isDev = extensionMode !== vscode.ExtensionMode.Production;
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
   }
 
@@ -64,7 +76,8 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
       vscodeVersion: this.getAppVersion(),
       platform: process.platform,
       properties,
-      measurements
+      measurements,
+      context: { is_dev: this.isDev }
     });
 
     this.queue.push(event);
@@ -80,17 +93,6 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   }
 
   private getAppVersion(): string {
-    // Detect app version (VS Code or legacy Azure Data Studio)
-    const appName = vscode.env.appName || '';
-    if (appName.toLowerCase().includes('azure data studio')) {
-      // Legacy: Azure Data Studio retired Feb 28, 2026
-      const envVer = process.env['AZURE_DATA_STUDIO_VERSION'];
-      if (envVer) return envVer;
-      // Parse from appName (e.g., "Azure Data Studio - 1.100.2")
-      const match = appName.match(/(\d+\.\d+\.\d+)/);
-      if (match) return match[1];
-      return 'AzureDataStudio';
-    }
     return vscode.version;
   }
 
@@ -98,6 +100,18 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
     await this.logEvent('error', {
       ...properties,
       ...buildSafeErrorProperties(error, context)
+    });
+  }
+
+  async logSqlGeneration(details: SqlGenerationTelemetry): Promise<void> {
+    await this.logEvent('sql_generation', {
+      command: details.command,
+      clause_type: details.clauseType,
+      data_type_mode: details.dataTypeMode,
+      used_distinct: details.usedDistinct,
+      duplicates_removed: details.duplicatesRemoved,
+      value_count_bucket: bucketValueCount(details.uniqueValueCount),
+      origin: details.origin
     });
   }
 

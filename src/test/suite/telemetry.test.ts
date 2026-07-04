@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import {
+  bucketValueCount,
   buildSafeErrorProperties,
+  clampString,
   clampTelemetryString,
   formatSydneyTimestamp,
   getDurationSeconds,
@@ -8,6 +10,7 @@ import {
   sanitizeTelemetryEvent
 } from '../../telemetry/privacy';
 import { buildTelemetryInsertEvent } from '../../telemetry/event-builder';
+import { persistSessionSummary, sendPendingSessionSummaries } from '../../telemetry/sessionSummary';
 import {
   EXTENSION_TELEMETRY_COLUMN_TYPES,
   EXTENSION_TELEMETRY_SERVER_MANAGED_COLUMNS,
@@ -16,6 +19,8 @@ import {
   TELEMETRY_FIELD_LIMITS
 } from '../../telemetry/schema-contract';
 import { TelemetryEvent } from '../../telemetry/types';
+import { SessionTelemetryState } from '../../commandEffects';
+import type * as vscode from 'vscode';
 
 describe('Telemetry Privacy Tests', () => {
   it('hashAnonymousUserId returns a stable SHA-256 hash', () => {
@@ -54,6 +59,15 @@ describe('Telemetry Privacy Tests', () => {
   it('clampTelemetryString truncates values that exceed the schema limit', () => {
     assert.strictEqual(clampTelemetryString('abcdef', 4), 'abcd');
     assert.strictEqual(clampTelemetryString('abcd', 4), 'abcd');
+    assert.strictEqual(clampString('abcdef', 4), 'abcd');
+  });
+
+  it('bucketValueCount reduces raw counts to coarse telemetry ranges', () => {
+    assert.strictEqual(bucketValueCount(0), '0');
+    assert.strictEqual(bucketValueCount(7), '1-10');
+    assert.strictEqual(bucketValueCount(77), '11-100');
+    assert.strictEqual(bucketValueCount(777), '101-1000');
+    assert.strictEqual(bucketValueCount(1777), '1001+');
   });
 
   it('sanitizeTelemetryEvent clamps fixed-width top-level fields and preserves session_id', () => {
@@ -89,24 +103,15 @@ describe('Telemetry Privacy Tests', () => {
       vscodeVersion: '1.127.0',
       platform: 'win32',
       properties: { first_activation: true },
-      measurements: { duration_ms: 12 }
+      measurements: { duration_ms: 12 },
+      context: { is_dev: true }
     });
 
     assert.deepStrictEqual(
       Object.keys(event).sort(),
-      [
-        'event_name',
-        'extension_version',
-        'id',
-        'measurements',
-        'platform',
-        'properties',
-        'session_id',
-        'timestamp',
-        'user_id',
-        'vscode_version'
-      ]
+      [...EXTENSION_TELEMETRY_WRITABLE_COLUMNS].sort()
     );
+    assert.ok(!Object.keys(event).includes(EXTENSION_TELEMETRY_SERVER_MANAGED_COLUMNS[0]));
   });
 
   it('documents the live Supabase schema contract for extension telemetry', () => {
@@ -129,6 +134,57 @@ describe('Telemetry Privacy Tests', () => {
     assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.user_id, 'character varying');
     assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.properties, 'jsonb');
     assert.strictEqual(EXTENSION_TELEMETRY_COLUMN_TYPES.created_at, 'timestamp with time zone');
+  });
+
+  it('persists session summaries and replays them on the next activation', async () => {
+    const store = new Map<string, unknown>();
+    const context = {
+      globalState: {
+        get<T>(key: string, defaultValue?: T): T {
+          return (store.has(key) ? store.get(key) : defaultValue) as T;
+        },
+        update(key: string, value: unknown): Thenable<void> {
+          store.set(key, value);
+          return Promise.resolve();
+        }
+      }
+    } as unknown as vscode.ExtensionContext;
+
+    const session: SessionTelemetryState = {
+      session_id: 'session-1',
+      start_time: '2026-07-04T00:00:00.000Z',
+      end_time: '2026-07-04T00:05:00.000Z',
+      total_sql_generations: 3,
+      by_command: { copyAsInStatement: 2, pasteAsInStatementDirect: 1 },
+      by_clause_type: { IN: 2, 'NOT IN': 1 },
+      deduped_count: 1,
+      duplicates_removed_total: 2,
+      error_count: 1
+    };
+
+    await persistSessionSummary(context, session);
+
+    const captured: Array<{ eventName: string; properties?: Record<string, string | number | boolean> }> = [];
+    const collector = {
+      async logEvent(eventName: string, properties?: Record<string, string | number | boolean>) {
+        captured.push({ eventName, properties });
+      }
+    };
+
+    await sendPendingSessionSummaries(context, collector, 'session-live');
+
+    assert.deepStrictEqual(captured.map(event => event.eventName), [
+      'session_sql_utilization',
+      'session_command_breakdown',
+      'session_clause_breakdown'
+    ]);
+    assert.strictEqual(captured[0].properties?.delivery, 'next_activation');
+    assert.strictEqual(captured[1].properties?.cmd_copyAsInStatement, 2);
+    assert.strictEqual(captured[2].properties?.['clause_NOT IN'], 1);
+    assert.deepStrictEqual(
+      context.globalState.get<Record<string, unknown>>('inQueryGenerator.pendingSessionSummaries', {}),
+      {}
+    );
   });
 
   it('getDurationSeconds returns a non-negative rounded duration', () => {

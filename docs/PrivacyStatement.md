@@ -1,6 +1,6 @@
 # Privacy Statement - SQL IN Clause Generator
 
-**Last updated:** 29/05/2026
+**Last updated:** 04/07/2026
 
 ---
 
@@ -19,7 +19,8 @@ Telemetry is optional. If VS Code telemetry is disabled globally, or if the exte
 When telemetry is enabled, the extension may collect:
 
 - **Feature Usage:** Which extension commands are used
-- **Aggregate Session Metrics:** Counts of SQL generation actions, clause-type usage, deduplication totals and approximate session duration
+- **Per-Action Usage Signals:** Which SQL-generation flows are used, whether duplicates were removed, which clause type was generated, and a coarse bucket of how many unique values were included
+- **Aggregate Session Metrics:** Counts of SQL generation actions, clause-type usage, deduplication totals, approximate session duration and delivery metadata for recovered session summaries
 - **Error Classification:** Error names, optional error codes and a short calling-context label
 - **System Information:** VS Code version, extension version and operating system platform
 - **Activation Signals:** Whether the extension was activated or deactivated in a VS Code session
@@ -71,6 +72,7 @@ You can disable telemetry in either of these ways.
 
 - The extension uses a one-way SHA-256 hash to generate an anonymous installation identifier
 - Session identifiers are temporary and scoped to the current VS Code session
+- Value counts are bucketed into coarse ranges rather than sent as exact counts
 - Telemetry is designed for aggregate analysis and does not include SQL content, clipboard data or workspace identifiers
 
 ---
@@ -79,7 +81,8 @@ You can disable telemetry in either of these ways.
 
 - Telemetry is sent over HTTPS to **Supabase**
 - The extension batches telemetry in memory and sends it asynchronously
-- Failed sends are only retried within the current running session
+- Failed sends are retried only in a bounded, best-effort way within the current running session
+- Session summaries are persisted locally during use and may be delivered on the next VS Code activation if shutdown interrupts delivery
 - The extension does not embed SQL content, clipboard data, file names or workspace identifiers in telemetry payloads
 
 ---
@@ -121,7 +124,7 @@ If you have questions about this privacy statement or the extension’s telemetr
 
 - **Extension Name:** SQL IN Clause Generator
 - **Publisher:** YakovT
-- **Version:** 0.16.0
+- **Version:** 0.16.1
 - **License:** MIT
 
 ---
