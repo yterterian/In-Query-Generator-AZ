@@ -121,7 +121,7 @@ describe('Telemetry Privacy Tests', () => {
       timestamp: '2026-07-04T12:00:00+10:00',
       sessionId: 'session-123',
       userId: 'u'.repeat(64),
-      extensionVersion: '0.16.2',
+      extensionVersion: '0.16.3',
       vscodeVersion: '1.127.0',
       platform: 'win32',
       properties: { first_activation: true },

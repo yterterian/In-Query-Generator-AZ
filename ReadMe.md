@@ -10,13 +10,13 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 
 ---
 
-## What's New In v0.16.2
+## What's New In v0.16.3
 
-- Collapsed Paste Special into a faster 2-stage flow that defaults to your configured deduplication setting.
-- Added an inline Stage 1 modifier so you can switch between distinct and all values for a single run without changing saved settings.
-- Added extension-host coverage for the new Paste Special flow, including focus retention and one-run duplicate overrides.
-- Aligned the status bar setting docs with the current behaviour: when multiple pinned commands are configured, only the first is shown.
-- Kept the telemetry and schema-contract hardening from `0.16.1` intact while tightening release metadata and docs for this patch release.
+- Added **Explode IN Clause to Lines** so you can turn an existing SQL `IN (...)` or `NOT IN (...)` clause back into one raw value per line.
+- Added a **Get Started** walkthrough in VS Code that highlights Paste Special, reverse conversion, and batch/table workflows.
+- Added privacy-safe `dialect_family` telemetry on SQL generation events so dialect demand can be measured before building dialect-specific formatting.
+- Added a checked-in dialect decision gate document so any future SQL Server or Oracle slice is driven by pre-registered thresholds instead of guesswork.
+- Kept the `0.16.2` Paste Special, packaging, and telemetry hardening intact while extending the feature set in a narrow, test-covered way.
 
 ---
 
@@ -323,6 +323,20 @@ Asset_Number IN (1336, 138804, 8869)
 ---
 
 ## Changelog
+
+### Version 0.16.3 - July 2026
+
+#### Reverse Workflow And Onboarding
+
+- Added **Explode IN Clause to Lines** to convert a selected SQL `IN (...)` or `NOT IN (...)` clause back into one raw value per line.
+- Added a VS Code **Get Started With SQL IN Clause Generator** walkthrough covering Paste Special, reverse conversion, and batch/table generation.
+- Added parser and extension-host regression coverage for the new reverse command.
+
+#### Dialect Demand Instrumentation
+
+- Added an allow-listed `dialect_family` telemetry property to `sql_generation` events, inferred from the active editor language.
+- Updated the privacy statement to disclose the new dialect-family signal.
+- Added a checked-in decision gate document for any future dialect-specific formatting slices.
 
 ### Version 0.16.2 - July 2026
 

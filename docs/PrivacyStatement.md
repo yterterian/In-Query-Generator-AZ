@@ -125,7 +125,7 @@ If you have questions about this privacy statement or the extension’s telemetr
 
 - **Extension Name:** SQL IN Clause Generator
 - **Publisher:** YakovT
-- **Version:** 0.16.2
+- **Version:** 0.16.3
 - **License:** MIT
 
 ---
