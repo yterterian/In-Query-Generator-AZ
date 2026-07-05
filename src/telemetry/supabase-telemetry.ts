@@ -3,8 +3,9 @@
  * Minimal, privacy-first, async, and non-blocking.
  */
 import { TelemetryEvent, TelemetryCollector, TelemetryScalar } from './types';
-import { buildSafeErrorProperties, bucketValueCount, formatSydneyTimestamp, generateUuidV7, hashAnonymousUserId } from './privacy';
+import { buildSafeErrorProperties, formatSydneyTimestamp, generateUuidV7, hashAnonymousUserId } from './privacy';
 import { buildTelemetryInsertEvent } from './event-builder';
+import { buildSqlGenerationProperties, SqlGenerationTelemetry } from './sql-generation-properties';
 import * as vscode from 'vscode';
 
 const EXTENSION_ID = 'YakovT.sql-in-query-statement-generator';
@@ -30,17 +31,6 @@ function isTelemetryEnabled(): boolean {
   const globalEnabled = vscode.env.isTelemetryEnabled;
   const extEnabled = vscode.workspace.getConfiguration('inQueryGenerator.telemetry').get<boolean>('enabled', true);
   return globalEnabled && extEnabled;
-}
-
-export interface SqlGenerationTelemetry {
-  command: string;
-  clauseType: 'IN' | 'NOT IN';
-  dataTypeMode: string;
-  usedDistinct: boolean;
-  duplicatesRemoved: number;
-  uniqueValueCount: number;
-  dialectFamily: string;
-  origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
 }
 
 export class SupabaseTelemetryCollector implements TelemetryCollector {
@@ -104,16 +94,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
   }
 
   async logSqlGeneration(details: SqlGenerationTelemetry): Promise<void> {
-    await this.logEvent('sql_generation', {
-      command: details.command,
-      clause_type: details.clauseType,
-      data_type_mode: details.dataTypeMode,
-      used_distinct: details.usedDistinct,
-      duplicates_removed: details.duplicatesRemoved,
-      value_count_bucket: bucketValueCount(details.uniqueValueCount),
-      dialect_family: details.dialectFamily,
-      origin: details.origin
-    });
+    await this.logEvent('sql_generation', buildSqlGenerationProperties(details));
   }
 
   async flush(): Promise<void> {

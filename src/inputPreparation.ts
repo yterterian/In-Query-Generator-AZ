@@ -1,4 +1,4 @@
-import { detectAndParseTableData, isSingleColumnWithCommas, parseCsvLine } from './utils/csvParser';
+import { detectAndParseTableData, extractSingleColumnValue, isSingleColumnWithCommas } from './utils/csvParser';
 
 export interface DetectedTableData {
     hasHeaders: boolean;
@@ -9,6 +9,7 @@ export interface DetectedTableData {
 export type ClipboardPreparationSource =
     | 'parsed_text'
     | 'selected_column'
+    | 'flattened_values'
     | 'detected_single_column'
     | 'raw_lines';
 
@@ -23,7 +24,13 @@ type ColumnChoice = {
     index: number;
 };
 
+type ColumnSelection =
+    | { kind: 'column'; index: number }
+    | { kind: 'flatten' };
+
 type PromptForColumn = (labels: string[], placeHolder: string) => Promise<string | undefined>;
+
+const FLATTEN_ALL_VALUES_LABEL = 'All values (flatten every field into the list)';
 
 function hasMultipleColumns(data: string[][]): boolean {
     return data.length > 0 && data[0].length > 1;
@@ -48,6 +55,13 @@ function getNonEmptyColumnValues(dataRows: string[][], columnIndex: number): str
         .filter(val => val !== '');
 }
 
+function getFlattenedNonEmptyValues(dataRows: string[][]): string[] {
+    return dataRows
+        .flatMap(row => row)
+        .map(value => value || '')
+        .filter(value => value !== '');
+}
+
 function shouldUseDetectedSingleColumnData(
     clipboardText: string,
     hasHeaders: boolean,
@@ -63,10 +77,17 @@ async function promptForColumnIndex(
     hasHeaders: boolean,
     promptForColumn: PromptForColumn,
     placeHolder: string
-): Promise<number | undefined> {
+): Promise<ColumnSelection | undefined> {
     const columns = getColumnChoices(data, hasHeaders);
+    const labels = columns.map(col => col.label);
+    if (!hasHeaders) {
+        // Flatten is only offered for headerless data because explicit headers usually mean
+        // the user expects column semantics rather than a cell-by-cell value merge.
+        labels.push(FLATTEN_ALL_VALUES_LABEL);
+    }
+
     const selectedColumn = await promptForColumn(
-        columns.map(col => col.label),
+        labels,
         placeHolder
     );
 
@@ -74,7 +95,14 @@ async function promptForColumnIndex(
         return undefined;
     }
 
-    return columns.find(col => col.label === selectedColumn)?.index ?? 0;
+    if (!hasHeaders && selectedColumn === FLATTEN_ALL_VALUES_LABEL) {
+        return { kind: 'flatten' };
+    }
+
+    return {
+        kind: 'column',
+        index: columns.find(col => col.label === selectedColumn)?.index ?? 0
+    };
 }
 
 export function detectTableData(text: string): DetectedTableData {
@@ -82,11 +110,11 @@ export function detectTableData(text: string): DetectedTableData {
 
     // If parsing failed but we suspect single-column data with commas, treat as single column.
     if (!parseResult.hasHeaders && parseResult.data.length === 0) {
-        if (isSingleColumnWithCommas(text)) {
+        if (isSingleColumnWithCommas(text) || parseResult.delimiter === ',') {
             const lines = text.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
             return {
                 hasHeaders: false,
-                data: lines.map(line => [parseCsvLine(line, ',')[0]]),
+                data: lines.map(line => [extractSingleColumnValue(line)]),
                 debugInfo: 'Detected single-column data with embedded commas'
             };
         }
@@ -107,7 +135,7 @@ export async function prepareClipboardValuesForDirectPaste(
     const { hasHeaders, data } = detectTableData(clipboardText);
 
     if (hasMultipleColumns(data)) {
-        const columnIndex = await promptForColumnIndex(
+        const columnSelection = await promptForColumnIndex(
             data,
             hasHeaders,
             promptForColumn,
@@ -116,12 +144,20 @@ export async function prepareClipboardValuesForDirectPaste(
                 : 'Multiple columns detected without headers. Select the column to use for the IN clause.'
         );
 
-        if (columnIndex === undefined) {
+        if (columnSelection === undefined) {
             return undefined;
         }
 
+        if (columnSelection.kind === 'flatten') {
+            return {
+                values: getFlattenedNonEmptyValues(getDataRows(data, hasHeaders)),
+                suggestedColumnName: '',
+                source: 'flattened_values'
+            };
+        }
+
         return {
-            values: getNonEmptyColumnValues(getDataRows(data, hasHeaders), columnIndex),
+            values: getNonEmptyColumnValues(getDataRows(data, hasHeaders), columnSelection.index),
             suggestedColumnName: '',
             source: 'selected_column'
         };
@@ -149,7 +185,7 @@ export async function prepareClipboardValuesForColumnPaste(
     const { hasHeaders, data } = detectTableData(clipboardText);
 
     if (hasMultipleColumns(data)) {
-        const columnIndex = await promptForColumnIndex(
+        const columnSelection = await promptForColumnIndex(
             data,
             hasHeaders,
             promptForColumn,
@@ -158,13 +194,21 @@ export async function prepareClipboardValuesForColumnPaste(
                 : 'Select column for IN clause (no headers detected)'
         );
 
-        if (columnIndex === undefined) {
+        if (columnSelection === undefined) {
             return undefined;
         }
 
+        if (columnSelection.kind === 'flatten') {
+            return {
+                values: getFlattenedNonEmptyValues(getDataRows(data, hasHeaders)),
+                suggestedColumnName: '',
+                source: 'flattened_values'
+            };
+        }
+
         return {
-            values: getNonEmptyColumnValues(getDataRows(data, hasHeaders), columnIndex),
-            suggestedColumnName: hasHeaders ? data[0]?.[columnIndex] ?? '' : '',
+            values: getNonEmptyColumnValues(getDataRows(data, hasHeaders), columnSelection.index),
+            suggestedColumnName: hasHeaders ? data[0]?.[columnSelection.index] ?? '' : '',
             source: 'selected_column'
         };
     }

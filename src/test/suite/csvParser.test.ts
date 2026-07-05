@@ -1,5 +1,11 @@
 import * as assert from 'assert';
-import { parseCsvLine, analyseDelimiters, detectAndParseTableData, isSingleColumnWithCommas } from '../../utils/csvParser';
+import {
+    analyseDelimiters,
+    detectAndParseTableData,
+    extractSingleColumnValue,
+    isSingleColumnWithCommas,
+    parseCsvLine
+} from '../../utils/csvParser';
 
 describe('CSV Parser Tests', () => {
     describe('parseCsvLine', () => {
@@ -26,6 +32,24 @@ describe('CSV Parser Tests', () => {
         it('should handle mixed quotes and no quotes', () => {
             const result = parseCsvLine('simple,"with, comma",123');
             assert.deepStrictEqual(result, ['simple', 'with, comma', '123']);
+        });
+
+        it('should not split on commas inside parentheses', () => {
+            const result = parseCsvLine('Fixed plant (electrical, mechanical) - FPE-03,Tools - TOOL-02');
+            assert.deepStrictEqual(result, [
+                'Fixed plant (electrical, mechanical) - FPE-03',
+                'Tools - TOOL-02'
+            ]);
+        });
+
+        it('should fall back to plain splitting when brackets are unbalanced', () => {
+            const result = parseCsvLine('smiley (,b,c');
+            assert.deepStrictEqual(result, ['smiley (', 'b', 'c']);
+        });
+
+        it('should still split tab-delimited cells containing parenthetical commas', () => {
+            const result = parseCsvLine('Plant (a, b)\tFPE-03', '\t');
+            assert.deepStrictEqual(result, ['Plant (a, b)', 'FPE-03']);
         });
     });
 
@@ -110,6 +134,13 @@ describe('CSV Parser Tests', () => {
         it('should not detect true tabular data as single column', () => {
             const text = 'Name\tAge\nJohn\t25';
             assert.strictEqual(isSingleColumnWithCommas(text), false);
+        });
+    });
+
+    describe('extractSingleColumnValue', () => {
+        it('never truncates unquoted single-column lines at embedded commas', () => {
+            const line = 'Ground disturbance (excavation, pits, slopes) - GRD-05';
+            assert.strictEqual(extractSingleColumnValue(line), line);
         });
     });
 

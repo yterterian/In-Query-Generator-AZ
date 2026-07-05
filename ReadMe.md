@@ -299,6 +299,7 @@ Asset_Number IN (1336, 138804, 8869)
 
 - **Copy with headers** for best results when using column-based features.
 - Use the **Paste Special In Statement** for advanced options and deduplication control.
+- When headerless pasted data is detected as multi-column, you can choose **All values (flatten every field into the list)** to turn wrapped records into one flat value list.
 - If you are generating a `NOT IN` clause, leave blank rows out of the source data where possible; the extension will drop them and warn when needed.
 - Adjust configuration settings to match your workflow and data conventions.
 - The extension provides feedback on duplicates removed and errors encountered.
@@ -308,6 +309,7 @@ Asset_Number IN (1336, 138804, 8869)
 ## Troubleshooting
 
 - If you see "Clipboard data does not appear to be tabular with headers," ensure you copied both the header and data rows.
+- Commas inside parentheses are treated as part of the value during comma-delimited parsing, which improves handling for descriptions such as `Fixed plant (electrical, mechanical)`.
 - For large datasets, the extension will warn you if processing may take time.
 - If a `NOT IN` clause would contain blank or `NULL`-like values, the extension removes them because `NOT IN (..., NULL, ...)` can return no rows.
 - If you encounter issues, check your configuration settings and review the feedback messages.
@@ -337,6 +339,12 @@ Asset_Number IN (1336, 138804, 8869)
 - Added an allow-listed `dialect_family` telemetry property to `sql_generation` events, inferred from the active editor language.
 - Updated the privacy statement to disclose the new dialect-family signal.
 - Added a checked-in decision gate document for any future dialect-specific formatting slices.
+
+#### Clipboard Parsing Hardening
+
+- Fixed silent truncation for comma-rich pasted values that were previously cut off at the first unquoted comma.
+- Made comma and semicolon parsing parenthesis-aware so descriptions like `Fixed plant (electrical, mechanical)` no longer inflate column counts.
+- Added a headerless table picker option to flatten every detected field into one value list when pasted data is wrapped across lines.
 
 ### Version 0.16.2 - July 2026
 

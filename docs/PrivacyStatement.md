@@ -19,7 +19,7 @@ Telemetry is optional. If VS Code telemetry is disabled globally, or if the exte
 When telemetry is enabled, the extension may collect:
 
 - **Feature Usage:** Which extension commands are used
-- **Per-Action Usage Signals:** Which SQL-generation flows are used, whether duplicates were removed, which clause type was generated, a coarse bucket of how many unique values were included, and an allow-listed SQL dialect family inferred from the active editor language
+- **Per-Action Usage Signals:** Which SQL-generation flows are used, whether duplicates were removed, which clause type was generated, which clipboard-preparation path was used when pasting from the clipboard, a coarse bucket of how many unique values were included, and an allow-listed SQL dialect family inferred from the active editor language
 - **Aggregate Session Metrics:** Counts of SQL generation actions, clause-type usage, deduplication totals, approximate session duration and delivery metadata for recovered session summaries
 - **Error Classification:** Error names, optional error codes and a short calling-context label
 - **System Information:** VS Code version, extension version and operating system platform

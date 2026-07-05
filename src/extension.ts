@@ -90,6 +90,7 @@ function logSqlGenerationTelemetry(details: {
     uniqueValueCount: number;
     dialectFamily: string;
     origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
+    source?: string;
 }): void {
     void telemetryCollector?.logSqlGeneration({
         command: details.command,
@@ -99,7 +100,8 @@ function logSqlGenerationTelemetry(details: {
         duplicatesRemoved: details.duplicatesRemoved,
         uniqueValueCount: details.uniqueValueCount,
         dialectFamily: details.dialectFamily,
-        origin: details.origin
+        origin: details.origin,
+        source: details.source
     });
 }
 
@@ -239,8 +241,7 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
         );
 
         if (!preparedValues) {
-            vscode.window.showWarningMessage('No column selected.');
-            return;
+            return; // User cancelled the picker.
         }
 
         let parsedData = preparedValues.values;
@@ -276,7 +277,8 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             duplicatesRemoved: preparedStatement.removed,
             uniqueValueCount: parsedData.length,
             dialectFamily,
-            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'direct'
+            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'direct',
+            source: preparedValues.source
         });
         persistCurrentSessionSummary();
         vscode.window.showInformationMessage(buildPasteInsertedMessage({
@@ -514,7 +516,8 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             duplicatesRemoved: preparedStatement.removed,
             uniqueValueCount: values.length,
             dialectFamily,
-            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'column'
+            origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'column',
+            source: preparedValues.source
         });
         persistCurrentSessionSummary();
         vscode.window.showInformationMessage(buildPasteInsertedMessage({

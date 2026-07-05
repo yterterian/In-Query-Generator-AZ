@@ -13,6 +13,7 @@ import {
 } from '../../telemetry/privacy';
 import { buildTelemetryInsertEvent } from '../../telemetry/event-builder';
 import { persistSessionSummary, sendPendingSessionSummaries } from '../../telemetry/sessionSummary';
+import { buildSqlGenerationProperties } from '../../telemetry/sql-generation-properties';
 import {
   EXTENSION_TELEMETRY_COLUMN_TYPES,
   EXTENSION_TELEMETRY_SERVER_MANAGED_COLUMNS,
@@ -90,6 +91,32 @@ describe('Telemetry Privacy Tests', () => {
     assert.strictEqual(bucketSqlDialectFamily('sql'), 'generic_sql');
     assert.strictEqual(bucketSqlDialectFamily('plaintext'), 'non_sql_text');
     assert.strictEqual(bucketSqlDialectFamily('some-third-party-id'), 'other');
+  });
+
+  it('buildSqlGenerationProperties includes clipboard preparation source when available', () => {
+    const properties = buildSqlGenerationProperties({
+      command: 'pasteAsInStatementDirect',
+      clauseType: 'IN',
+      dataTypeMode: 'auto',
+      usedDistinct: true,
+      duplicatesRemoved: 2,
+      uniqueValueCount: 9,
+      dialectFamily: 'sqlserver',
+      origin: 'direct',
+      source: 'flattened_values'
+    });
+
+    assert.deepStrictEqual(properties, {
+      command: 'pasteAsInStatementDirect',
+      clause_type: 'IN',
+      data_type_mode: 'auto',
+      used_distinct: true,
+      duplicates_removed: 2,
+      value_count_bucket: '1-10',
+      dialect_family: 'sqlserver',
+      origin: 'direct',
+      source: 'flattened_values'
+    });
   });
 
   it('sanitizeTelemetryEvent clamps fixed-width top-level fields and preserves session_id', () => {

@@ -136,6 +136,72 @@ describe('Extension Host Tests', () => {
         });
     });
 
+    it('direct paste can flatten inconsistent comma-rich rows instead of truncating at the first comma', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: false
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText(
+                'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03,Use of tools and equipment - Tool or equipment failure/malfunction leading to injury - TOOL-02\n'
+                + 'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03,Working with energised systems - Uncontrolled release of energy (live electrical work) - WES-02\n'
+                + 'Ground disturbance (excavation, pits, slopes, underground services) - Contact with underground services - GRD-05,Ground disturbance (excavation, pits, slopes, underground services) - Excavation flooding - GRD-03,Ground disturbance (excavation, pits, slopes, underground services) - Ground or slope failure\t- GRD-01\n'
+                + 'Ground disturbance (excavation, pits, slopes, underground services) - Fall of object from one level to another - GRD-04,Mobile plant and equipment - Loss of control over mobile plant - MPE-02'
+            );
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async (items: readonly unknown[]) => {
+                    const options = items as string[];
+                    return options.find(option => option === 'All values (flatten every field into the list)');
+                },
+                async () => {
+                    await vscode.commands.executeCommand('extension.pasteAsInStatementDirect');
+                }
+            );
+
+            await waitForDocumentText(
+                editor.document,
+                `IN (${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'}    'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03', 'Use of tools and equipment - Tool or equipment failure/malfunction leading to injury - TOOL-02', 'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03', 'Working with energised systems - Uncontrolled release of energy (live electrical work) - WES-02', 'Ground disturbance (excavation, pits, slopes, underground services) - Contact with underground services - GRD-05',${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'}    'Ground disturbance (excavation, pits, slopes, underground services) - Excavation flooding - GRD-03', 'Ground disturbance (excavation, pits, slopes, underground services) - Ground or slope failure\t- GRD-01', 'Ground disturbance (excavation, pits, slopes, underground services) - Fall of object from one level to another - GRD-04', 'Mobile plant and equipment - Loss of control over mobile plant - MPE-02'${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'})`
+            );
+        });
+    });
+
+    it('direct paste cancel does not warn when the column picker is dismissed', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: false
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText('1\tJohn\n2\tJane');
+            const warnings: string[] = [];
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async () => undefined,
+                async () => {
+                    await withWindowMethodOverride(
+                        'showWarningMessage',
+                        async (message: string) => {
+                            warnings.push(message);
+                            return undefined;
+                        },
+                        async () => {
+                            await vscode.commands.executeCommand('extension.pasteAsInStatementDirect');
+                        }
+                    );
+                }
+            );
+
+            assert.strictEqual(editor.document.getText(), '');
+            assert.deepStrictEqual(warnings, []);
+        });
+    });
+
     it('direct paste uses all rows for no-header multi-column tables', async () => {
         await activateExtension();
 

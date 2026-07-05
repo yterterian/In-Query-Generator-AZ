@@ -19,6 +19,12 @@ export interface DelimiterAnalysis {
 
 type CellValueType = 'empty' | 'numeric' | 'date' | 'guid' | 'text';
 
+export function extractSingleColumnValue(line: string): string {
+    const trimmed = line.trim();
+    const fields = parseCsvLine(trimmed, ',');
+    return fields.length === 1 ? (fields[0] ?? '') : trimmed;
+}
+
 const COMMON_HEADER_LABELS = new Set([
     'id',
     'name',
@@ -160,9 +166,25 @@ function inferSingleColumnHeader(values: string[]): boolean {
  * Parse a single CSV line with proper quote and escape handling
  */
 export function parseCsvLine(line: string, delimiter: string = ','): string[] {
+    const shouldTrackBracketDepth = delimiter === ',' || delimiter === ';';
+    const depthAwareResult = parseCsvLineInternal(line, delimiter, shouldTrackBracketDepth);
+
+    if (shouldTrackBracketDepth && !depthAwareResult.balancedBrackets) {
+        return parseCsvLineInternal(line, delimiter, false).fields;
+    }
+
+    return depthAwareResult.fields;
+}
+
+function parseCsvLineInternal(
+    line: string,
+    delimiter: string,
+    trackBracketDepth: boolean
+): { fields: string[]; balancedBrackets: boolean } {
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
+    let bracketDepth = 0;
     let i = 0;
 
     while (i < line.length) {
@@ -179,7 +201,13 @@ export function parseCsvLine(line: string, delimiter: string = ','): string[] {
                 // Toggle quote state
                 inQuotes = !inQuotes;
             }
-        } else if (char === delimiter && !inQuotes) {
+        } else if (trackBracketDepth && !inQuotes && (char === '(' || char === '[')) {
+            bracketDepth++;
+            current += char;
+        } else if (trackBracketDepth && !inQuotes && (char === ')' || char === ']')) {
+            bracketDepth = Math.max(0, bracketDepth - 1);
+            current += char;
+        } else if (char === delimiter && !inQuotes && bracketDepth === 0) {
             // End of field
             result.push(current.trim());
             current = '';
@@ -193,7 +221,7 @@ export function parseCsvLine(line: string, delimiter: string = ','): string[] {
     result.push(current.trim());
 
     // Post-process: remove surrounding quotes and unescape double quotes
-    return result.map(field => {
+    const fields = result.map(field => {
         let trimmed = field.trim();
         if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
             // Remove surrounding quotes and unescape double quotes
@@ -201,6 +229,11 @@ export function parseCsvLine(line: string, delimiter: string = ','): string[] {
         }
         return trimmed;
     });
+
+    return {
+        fields,
+        balancedBrackets: bracketDepth === 0
+    };
 }
 
 /**
@@ -290,7 +323,7 @@ export function detectAndParseTableData(text: string): ParsedTableData {
     const delimiterAnalyses = analyseDelimiters(lines);
     
     if (delimiterAnalyses.length === 0) {
-        const singleColumnValues = lines.map(line => parseCsvLine(line, ',')[0]);
+        const singleColumnValues = lines.map(extractSingleColumnValue);
         // No delimiters found - treat as single column
         return {
             hasHeaders: inferSingleColumnHeader(singleColumnValues),
