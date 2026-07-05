@@ -93,7 +93,7 @@ describe('Telemetry Privacy Tests', () => {
     assert.strictEqual(bucketSqlDialectFamily('some-third-party-id'), 'other');
   });
 
-  it('buildSqlGenerationProperties includes clipboard preparation source when available', () => {
+  it('buildSqlGenerationProperties includes explicit line-mode selection when available', () => {
     const properties = buildSqlGenerationProperties({
       command: 'pasteAsInStatementDirect',
       clauseType: 'IN',
@@ -103,7 +103,7 @@ describe('Telemetry Privacy Tests', () => {
       uniqueValueCount: 9,
       dialectFamily: 'sqlserver',
       origin: 'direct',
-      source: 'flattened_values'
+      source: 'selected_lines'
     });
 
     assert.deepStrictEqual(properties, {
@@ -115,7 +115,7 @@ describe('Telemetry Privacy Tests', () => {
       value_count_bucket: '1-10',
       dialect_family: 'sqlserver',
       origin: 'direct',
-      source: 'flattened_values'
+      source: 'selected_lines'
     });
   });
 
@@ -148,7 +148,7 @@ describe('Telemetry Privacy Tests', () => {
       timestamp: '2026-07-04T12:00:00+10:00',
       sessionId: 'session-123',
       userId: 'u'.repeat(64),
-      extensionVersion: '0.16.3',
+      extensionVersion: '0.16.4',
       vscodeVersion: '1.127.0',
       platform: 'win32',
       properties: { first_activation: true },

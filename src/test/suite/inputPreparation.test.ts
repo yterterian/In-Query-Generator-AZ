@@ -43,13 +43,20 @@ describe('Input Preparation Tests', () => {
         ]);
     });
 
+    it('detectTableData treats wildly inconsistent comma rows as whole-line single-column data', () => {
+        const result = detectTableData('a,b\nc,d,e,f,g\nh,i,j,k,l,m,n,o,p');
+
+        assert.strictEqual(result.hasHeaders, false);
+        assert.deepStrictEqual(result.data, [['a,b'], ['c,d,e,f,g'], ['h,i,j,k,l,m,n,o,p']]);
+    });
+
     it('prepareClipboardValuesForDirectPaste selects a column from no-header tabular data', async () => {
         const result = await prepareClipboardValuesForDirectPaste(
             '1\tJohn\n2\tJane',
             () => {
                 throw new Error('parseValues should not be used for detected tabular data.');
             },
-            async () => 'Column 2'
+            async items => items.find(item => item.label === 'Column 2')
         );
 
         assert.deepStrictEqual(result, {
@@ -65,13 +72,58 @@ describe('Input Preparation Tests', () => {
             () => {
                 throw new Error('parseValues should not be used for detected tabular data.');
             },
-            async () => 'All values (flatten every field into the list)'
+            async items => items.find(item => item.label === 'All values (flatten every field into the list)')
         );
 
         assert.deepStrictEqual(result, {
             values: ['A1', 'B1', 'A2', 'B2'],
             suggestedColumnName: '',
             source: 'flattened_values'
+        });
+    });
+
+    it('prepareClipboardValuesForDirectPaste can treat each headerless line as one value and exposes counts in picker items', async () => {
+        const clipboardText = '  Buildings and temporary structures - Contact with embedded or installed services - BT-04,Ground disturbance - GRD-05  \n'
+            + 'Buildings and temporary structures - Failure of a permanent structure or fitting - BT-02,Working at height - WAH-02';
+        let capturedItems: Array<{ label: string; description: string; detail?: string }> = [];
+
+        const result = await prepareClipboardValuesForDirectPaste(
+            clipboardText,
+            () => {
+                throw new Error('parseValues should not be used for detected tabular data.');
+            },
+            async items => {
+                capturedItems = items.map(item => ({
+                    label: item.label,
+                    description: item.description,
+                    detail: item.detail
+                }));
+                return items.find(item => item.label === 'Each line as one value');
+            }
+        );
+
+        assert.deepStrictEqual(capturedItems, [
+            { label: 'Column 1', description: '2 values', detail: undefined },
+            { label: 'Column 2', description: '2 values', detail: undefined },
+            {
+                label: 'Each line as one value',
+                description: '2 values',
+                detail: 'Ignore commas and keep each original clipboard line as a single value.'
+            },
+            {
+                label: 'All values (flatten every field into the list)',
+                description: '4 values',
+                detail: 'Flatten every parsed field into the list.'
+            }
+        ]);
+
+        assert.deepStrictEqual(result, {
+            values: [
+                'Buildings and temporary structures - Contact with embedded or installed services - BT-04,Ground disturbance - GRD-05',
+                'Buildings and temporary structures - Failure of a permanent structure or fitting - BT-02,Working at height - WAH-02'
+            ],
+            suggestedColumnName: '',
+            source: 'selected_lines'
         });
     });
 
@@ -106,7 +158,7 @@ describe('Input Preparation Tests', () => {
             () => {
                 throw new Error('parseValues should not be used for detected tabular data.');
             },
-            async () => 'All values (flatten every field into the list)'
+            async items => items.find(item => item.label === 'All values (flatten every field into the list)')
         );
 
         assert.deepStrictEqual(result, {
@@ -138,6 +190,31 @@ describe('Input Preparation Tests', () => {
             values: ['iPhone 13, 128GB', 'Samsung Galaxy, S22'],
             suggestedColumnName: 'Product Name',
             source: 'detected_single_column'
+        });
+    });
+
+    it('prepareClipboardValuesForColumnPaste does not offer line or flatten modes when headers are present', async () => {
+        let capturedItems: Array<{ label: string; description: string }> = [];
+
+        const result = await prepareClipboardValuesForColumnPaste(
+            'product_id,product_name\n1,Electrical\n2,Mechanical',
+            async items => {
+                capturedItems = items.map(item => ({
+                    label: item.label,
+                    description: item.description
+                }));
+                return items[0];
+            }
+        );
+
+        assert.deepStrictEqual(capturedItems, [
+            { label: 'product_id', description: '2 values' },
+            { label: 'product_name', description: '2 values' }
+        ]);
+        assert.deepStrictEqual(result, {
+            values: ['1', '2'],
+            suggestedColumnName: 'product_id',
+            source: 'selected_column'
         });
     });
 

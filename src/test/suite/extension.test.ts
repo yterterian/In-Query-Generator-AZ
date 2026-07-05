@@ -154,8 +154,8 @@ describe('Extension Host Tests', () => {
             await withWindowMethodOverride(
                 'showQuickPick',
                 async (items: readonly unknown[]) => {
-                    const options = items as string[];
-                    return options.find(option => option === 'All values (flatten every field into the list)');
+                    const options = items as Array<{ label?: string }>;
+                    return options.find(option => option.label === 'All values (flatten every field into the list)');
                 },
                 async () => {
                     await vscode.commands.executeCommand('extension.pasteAsInStatementDirect');
@@ -165,6 +165,37 @@ describe('Extension Host Tests', () => {
             await waitForDocumentText(
                 editor.document,
                 `IN (${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'}    'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03', 'Use of tools and equipment - Tool or equipment failure/malfunction leading to injury - TOOL-02', 'Fixed plant and equipment - Uncontrolled energy release from fixed plant (electrical, mechanical, stored energy) - FPE-03', 'Working with energised systems - Uncontrolled release of energy (live electrical work) - WES-02', 'Ground disturbance (excavation, pits, slopes, underground services) - Contact with underground services - GRD-05',${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'}    'Ground disturbance (excavation, pits, slopes, underground services) - Excavation flooding - GRD-03', 'Ground disturbance (excavation, pits, slopes, underground services) - Ground or slope failure\t- GRD-01', 'Ground disturbance (excavation, pits, slopes, underground services) - Fall of object from one level to another - GRD-04', 'Mobile plant and equipment - Loss of control over mobile plant - MPE-02'${editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'})`
+            );
+        });
+    });
+
+    it('direct paste can treat each headerless clipboard line as one value when commas are ambiguous', async () => {
+        await activateExtension();
+
+        await withConfigOverrides({
+            splitOnWhitespace: false,
+            distinctValues: false
+        }, async () => {
+            const editor = await openEditor();
+            await vscode.env.clipboard.writeText(
+                'Buildings and temporary structures - Contact with embedded or installed services - BT-04,Ground disturbance - GRD-05\n'
+                + 'Buildings and temporary structures - Failure of a permanent structure or fitting - BT-02,Working at height - WAH-02'
+            );
+
+            await withWindowMethodOverride(
+                'showQuickPick',
+                async (items: readonly unknown[]) => {
+                    const options = items as Array<{ label?: string }>;
+                    return options.find(option => option.label === 'Each line as one value');
+                },
+                async () => {
+                    await vscode.commands.executeCommand('extension.pasteAsInStatementDirect');
+                }
+            );
+
+            await waitForDocumentText(
+                editor.document,
+                "IN ('Buildings and temporary structures - Contact with embedded or installed services - BT-04,Ground disturbance - GRD-05', 'Buildings and temporary structures - Failure of a permanent structure or fitting - BT-02,Working at height - WAH-02')"
             );
         });
     });
@@ -214,7 +245,10 @@ describe('Extension Host Tests', () => {
 
             await withWindowMethodOverride(
                 'showQuickPick',
-                async () => 'Column 2',
+                async (items: readonly unknown[]) => {
+                    const options = items as Array<{ label?: string }>;
+                    return options.find(option => option.label === 'Column 2');
+                },
                 async () => {
                     await vscode.commands.executeCommand('extension.pasteAsInStatementDirect');
                 }

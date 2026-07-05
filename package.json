@@ -3,7 +3,7 @@
   "displayName": "SQL IN Clause Generator",
   "publisher": "YakovT",
   "description": "SQL IN Clause Generator: Instantly generate SQL IN/NOT IN clauses from lists, Excel, or tabular data. SQL Formatter, Generate SQL, SQL Automation, productivity tool, list to SQL, Excel data, batch processing, deduplication, and smart data type detection for VS Code.",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "icon": "images/logo-icon.png",
   "engines": {
     "vscode": "^1.95.0",

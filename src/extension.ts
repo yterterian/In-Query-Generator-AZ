@@ -237,7 +237,7 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
         const preparedValues = await prepareClipboardValuesForDirectPaste(
             clipboardText,
             parseText,
-            async (labels, placeHolder) => vscode.window.showQuickPick(labels, { placeHolder })
+            async (items, placeHolder) => vscode.window.showQuickPick(items, { placeHolder })
         );
 
         if (!preparedValues) {
@@ -464,7 +464,7 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
 
         const preparedValues = await prepareClipboardValuesForColumnPaste(
             clipboardText,
-            async (labels, placeHolder) => vscode.window.showQuickPick(labels, { placeHolder })
+            async (items, placeHolder) => vscode.window.showQuickPick(items, { placeHolder })
         );
 
         if (!preparedValues) {

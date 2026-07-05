@@ -9,6 +9,7 @@ export interface DetectedTableData {
 export type ClipboardPreparationSource =
     | 'parsed_text'
     | 'selected_column'
+    | 'selected_lines'
     | 'flattened_values'
     | 'detected_single_column'
     | 'raw_lines';
@@ -26,10 +27,19 @@ type ColumnChoice = {
 
 type ColumnSelection =
     | { kind: 'column'; index: number }
+    | { kind: 'lines' }
     | { kind: 'flatten' };
 
-type PromptForColumn = (labels: string[], placeHolder: string) => Promise<string | undefined>;
+export interface ColumnPromptItem {
+    label: string;
+    description: string;
+    detail?: string;
+    selection: ColumnSelection;
+}
 
+type PromptForColumn = (items: ColumnPromptItem[], placeHolder: string) => Promise<ColumnPromptItem | undefined>;
+
+const EACH_LINE_AS_VALUE_LABEL = 'Each line as one value';
 const FLATTEN_ALL_VALUES_LABEL = 'All values (flatten every field into the list)';
 
 function hasMultipleColumns(data: string[][]): boolean {
@@ -62,6 +72,17 @@ function getFlattenedNonEmptyValues(dataRows: string[][]): string[] {
         .filter(value => value !== '');
 }
 
+function getTrimmedNonEmptyLines(text: string): string[] {
+    return text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+}
+
+function formatValueCount(count: number): string {
+    return `${count} value${count === 1 ? '' : 's'}`;
+}
+
 function shouldUseDetectedSingleColumnData(
     clipboardText: string,
     hasHeaders: boolean,
@@ -73,42 +94,56 @@ function shouldUseDetectedSingleColumnData(
 }
 
 async function promptForColumnIndex(
+    clipboardText: string,
     data: string[][],
     hasHeaders: boolean,
     promptForColumn: PromptForColumn,
     placeHolder: string
 ): Promise<ColumnSelection | undefined> {
     const columns = getColumnChoices(data, hasHeaders);
-    const labels = columns.map(col => col.label);
+    const dataRows = getDataRows(data, hasHeaders);
+    const items: ColumnPromptItem[] = columns.map(col => ({
+        label: col.label,
+        description: formatValueCount(getNonEmptyColumnValues(dataRows, col.index).length),
+        selection: { kind: 'column', index: col.index }
+    }));
+
     if (!hasHeaders) {
-        // Flatten is only offered for headerless data because explicit headers usually mean
-        // the user expects column semantics rather than a cell-by-cell value merge.
-        labels.push(FLATTEN_ALL_VALUES_LABEL);
+        // Raw-line and flatten options are only offered for headerless data because explicit
+        // headers usually mean the user expects column semantics rather than alternate
+        // interpretations of the clipboard payload.
+        items.push({
+            label: EACH_LINE_AS_VALUE_LABEL,
+            description: formatValueCount(getTrimmedNonEmptyLines(clipboardText).length),
+            detail: 'Ignore commas and keep each original clipboard line as a single value.',
+            selection: { kind: 'lines' }
+        });
+        items.push({
+            label: FLATTEN_ALL_VALUES_LABEL,
+            description: formatValueCount(getFlattenedNonEmptyValues(dataRows).length),
+            detail: 'Flatten every parsed field into the list.',
+            selection: { kind: 'flatten' }
+        });
     }
 
-    const selectedColumn = await promptForColumn(
-        labels,
+    const selectedItem = await promptForColumn(
+        items,
         placeHolder
     );
 
-    if (!selectedColumn) {
+    if (!selectedItem) {
         return undefined;
     }
 
-    if (!hasHeaders && selectedColumn === FLATTEN_ALL_VALUES_LABEL) {
-        return { kind: 'flatten' };
-    }
-
-    return {
-        kind: 'column',
-        index: columns.find(col => col.label === selectedColumn)?.index ?? 0
-    };
+    return selectedItem.selection;
 }
 
 export function detectTableData(text: string): DetectedTableData {
     const parseResult = detectAndParseTableData(text);
 
-    // If parsing failed but we suspect single-column data with commas, treat as single column.
+    // If parsing failed, preserve comma-delimited lines as a non-lossy single-column shape.
+    // This keeps wildly inconsistent comma-rich clipboard rows intact instead of truncating
+    // them at the first comma or discarding them as malformed table data.
     if (!parseResult.hasHeaders && parseResult.data.length === 0) {
         if (isSingleColumnWithCommas(text) || parseResult.delimiter === ',') {
             const lines = text.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
@@ -136,6 +171,7 @@ export async function prepareClipboardValuesForDirectPaste(
 
     if (hasMultipleColumns(data)) {
         const columnSelection = await promptForColumnIndex(
+            clipboardText,
             data,
             hasHeaders,
             promptForColumn,
@@ -146,6 +182,14 @@ export async function prepareClipboardValuesForDirectPaste(
 
         if (columnSelection === undefined) {
             return undefined;
+        }
+
+        if (columnSelection.kind === 'lines') {
+            return {
+                values: getTrimmedNonEmptyLines(clipboardText),
+                suggestedColumnName: '',
+                source: 'selected_lines'
+            };
         }
 
         if (columnSelection.kind === 'flatten') {
@@ -186,6 +230,7 @@ export async function prepareClipboardValuesForColumnPaste(
 
     if (hasMultipleColumns(data)) {
         const columnSelection = await promptForColumnIndex(
+            clipboardText,
             data,
             hasHeaders,
             promptForColumn,
@@ -196,6 +241,14 @@ export async function prepareClipboardValuesForColumnPaste(
 
         if (columnSelection === undefined) {
             return undefined;
+        }
+
+        if (columnSelection.kind === 'lines') {
+            return {
+                values: getTrimmedNonEmptyLines(clipboardText),
+                suggestedColumnName: '',
+                source: 'selected_lines'
+            };
         }
 
         if (columnSelection.kind === 'flatten') {
@@ -221,9 +274,8 @@ export async function prepareClipboardValuesForColumnPaste(
         };
     }
 
-    const lines = clipboardText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
     return {
-        values: lines,
+        values: getTrimmedNonEmptyLines(clipboardText),
         suggestedColumnName: '',
         source: 'raw_lines'
     };

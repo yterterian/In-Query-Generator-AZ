@@ -1,6 +1,6 @@
 # Privacy Statement - SQL IN Clause Generator
 
-**Last updated:** 05/07/2026
+**Last updated:** 06/07/2026
 
 ---
 
@@ -19,7 +19,7 @@ Telemetry is optional. If VS Code telemetry is disabled globally, or if the exte
 When telemetry is enabled, the extension may collect:
 
 - **Feature Usage:** Which extension commands are used
-- **Per-Action Usage Signals:** Which SQL-generation flows are used, whether duplicates were removed, which clause type was generated, which clipboard-preparation path was used when pasting from the clipboard, a coarse bucket of how many unique values were included, and an allow-listed SQL dialect family inferred from the active editor language
+- **Per-Action Usage Signals:** Which SQL-generation flows are used, whether duplicates were removed, which clause type was generated, which clipboard-preparation path was used when pasting from the clipboard (for example selected column, selected lines, flattened values, or plain parsed text), a coarse bucket of how many unique values were included, and an allow-listed SQL dialect family inferred from the active editor language
 - **Aggregate Session Metrics:** Counts of SQL generation actions, clause-type usage, deduplication totals, approximate session duration and delivery metadata for recovered session summaries
 - **Error Classification:** Error names, optional error codes and a short calling-context label
 - **System Information:** VS Code version, extension version and operating system platform
@@ -125,7 +125,7 @@ If you have questions about this privacy statement or the extension’s telemetr
 
 - **Extension Name:** SQL IN Clause Generator
 - **Publisher:** YakovT
-- **Version:** 0.16.3
+- **Version:** 0.16.4
 - **License:** MIT
 
 ---
