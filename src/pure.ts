@@ -94,6 +94,10 @@ function parseSqlValueList(text: string): string[] | null {
         });
 }
 
+export function parseSqlInClauseValues(text: string): string[] | null {
+    return parseSqlValueList(text);
+}
+
 export function parseText(
     text: string,
     splitOnWhitespace: boolean = false
@@ -102,7 +106,7 @@ export function parseText(
         return [];
     }
 
-    const sqlValues = parseSqlValueList(text);
+    const sqlValues = parseSqlInClauseValues(text);
     if (sqlValues !== null) {
         return sqlValues;
     }

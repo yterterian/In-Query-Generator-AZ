@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseText, formatValue, generateInStatement, FormatOptions, DataTypeMode, isNullLikeValue } from '../../pure';
+import { parseText, parseSqlInClauseValues, formatValue, generateInStatement, FormatOptions, DataTypeMode, isNullLikeValue } from '../../pure';
 
 describe('Pure Function Unit Tests', () => {
     describe('parseText', () => {
@@ -216,6 +216,19 @@ describe('Pure Function Unit Tests', () => {
             const result = parseText(input, false);
             assert.strictEqual(result.length, 1000);
             assert.ok(result.every(v => v === 'x'));
+        });
+    });
+
+    describe('parseSqlInClauseValues', () => {
+        it('returns null for non-SQL input', () => {
+            assert.strictEqual(parseSqlInClauseValues('alpha\nbeta'), null);
+        });
+
+        it('extracts values from SQL IN and NOT IN clauses', () => {
+            assert.deepStrictEqual(
+                parseSqlInClauseValues("customer_id NOT IN (123, 'Smith, John', NULL)"),
+                ['123', 'Smith, John', 'NULL']
+            );
         });
     });
 

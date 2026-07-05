@@ -162,6 +162,10 @@
         "title": "Process Table Data as IN Statement"
       },
       {
+        "command": "extension.explodeInClauseToLines",
+        "title": "Explode IN Clause to Lines"
+      },
+      {
         "command": "inQueryGenerator.toggleSplitOnWhitespace",
         "title": "Toggle Split on Whitespace"
       },
@@ -186,6 +190,11 @@
           "command": "extension.pasteSpecialInStatement",
           "when": "editorFocus",
           "group": "9_cutcopypaste"
+        },
+        {
+          "command": "extension.explodeInClauseToLines",
+          "when": "editorHasSelection",
+          "group": "9_cutcopypaste"
         }
       ]
     },
@@ -207,6 +216,39 @@
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
         "when": "editorTextFocus && !editorReadonly && (editorLangId =~ /sql|postgres|hql/ || config.inQueryGenerator.globalKeybindings)"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "sql-in-clause-generator.gettingStarted",
+        "title": "Get Started With SQL IN Clause Generator",
+        "description": "Generate, reverse, and batch-build SQL IN clauses with the extension's core workflows.",
+        "steps": [
+          {
+            "id": "sql-in-clause-generator.paste-special",
+            "title": "Generate a clause with Paste Special",
+            "description": "Use [Paste Special In Statement](command:extension.pasteSpecialInStatement) to build an `IN` or `NOT IN` clause with inline distinct/all control and data type formatting.",
+            "completionEvents": [
+              "onCommand:extension.pasteSpecialInStatement"
+            ]
+          },
+          {
+            "id": "sql-in-clause-generator.explode-clause",
+            "title": "Reverse an existing clause back to raw lines",
+            "description": "Select an SQL `IN (...)` clause in the editor and run [Explode IN Clause to Lines](command:extension.explodeInClauseToLines) to turn it back into one value per line.",
+            "completionEvents": [
+              "onCommand:extension.explodeInClauseToLines"
+            ]
+          },
+          {
+            "id": "sql-in-clause-generator.batch-process",
+            "title": "Build a clause from tabular data",
+            "description": "Highlight tabular data with headers and run [Process Table Data as IN Statement](command:extension.batchProcessInStatement) to generate a clause from the column you choose.",
+            "completionEvents": [
+              "onCommand:extension.batchProcessInStatement"
+            ]
+          }
+        ]
       }
     ]
   },

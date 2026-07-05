@@ -26,6 +26,7 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 |------------------------------------------|--------------------------------------------------------------------------------------------------|
 | IN/NOT IN Clause Generation              | Convert selected text or clipboard content into SQL `IN`/`NOT IN` clauses                        |
 | Batch/Table Data Processing              | Select a column from tabular data (with headers) to generate an IN clause                        |
+| Reverse Clause To Lines                  | Convert an existing SQL `IN`/`NOT IN` clause back into one raw value per line                    |
 | Paste Special Dropdown                   | Access advanced paste options (IN, NOT IN, column-based, deduplication toggle, data type mode)   |
 | Data Type Detection                      | Automatically formats numbers, dates, GUIDs, and more                                            |
 | **Data Type Override**             | Force values as text or numbers - perfect for numeric IDs that should be quoted                  |
@@ -33,6 +34,7 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
 | NULL-safe `NOT IN` Handling              | Blank and `NULL`-like inputs are removed from `NOT IN` clauses to avoid always-false predicates |
 | Custom Formatting                        | One value per line, max values per line, indentation, and more                                   |
 | Status Bar Customization                 | Quick access to extension features via a configurable status bar dropdown                        |
+| Get Started Walkthrough                  | Guided onboarding in VS Code's Get Started view for the main generation and reverse workflows    |
 | Preview & Feedback                       | Preview generated statements and receive feedback on duplicates removed or `NULL` handling       |
 | Keyboard Shortcuts                       | Fast access to core features                                                                     |
 | Privacy-first Telemetry                  | Optional aggregate telemetry with hashed install IDs, coarse value buckets, and no SQL payloads  |
@@ -80,7 +82,13 @@ SQL IN Clause Generator is a powerful extension for VS Code that streamlines the
   - **Force Text (Quote All)**: Forces ALL values to be quoted as text - perfect for numeric IDs like `123` that should be `'123'`.
   - **Force Number (Unquote All)**: Forces all values to be unquoted as numbers (non-numeric values are automatically quoted as fallback).
 
-### 4. **Process Table Data as IN Statement**
+### 4. **Explode IN Clause to Lines**
+
+- Select an existing SQL `IN (...)` or `NOT IN (...)` clause in the editor.
+- Run **Explode IN Clause to Lines** from the Command Palette or editor context menu.
+- The selected clause is replaced with one raw value per line, preserving SQL string escaping and `NULL` entries sensibly.
+
+### 5. **Process Table Data as IN Statement**
 
 - Select tabular data (with headers) in your editor.
 - Open the Command Palette and run **Process Table Data as IN Statement**.
@@ -156,6 +164,13 @@ You can disable telemetry at any time via `inQueryGenerator.telemetry.enabled`. 
 - The status bar provides quick access to extension features.
 - Use `inQueryGenerator.statusBarActions` to show the default dropdown or pin a specific command.
 - If you provide multiple command IDs, the current implementation displays the first configured pinned action.
+
+---
+
+## Get Started Walkthrough
+
+- The extension contributes a **Get Started With SQL IN Clause Generator** walkthrough in VS Code's **Get Started** view.
+- It highlights the main workflows: Paste Special generation, reversing an existing clause back to lines, and building a clause from tabular data.
 
 ---
 

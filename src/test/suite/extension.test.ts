@@ -83,6 +83,7 @@ describe('Extension Host Tests', () => {
         assert.ok(commands.includes('extension.copyAsInStatement'));
         assert.ok(commands.includes('extension.pasteAsInStatementDirect'));
         assert.ok(commands.includes('extension.pasteSpecialInStatement'));
+        assert.ok(commands.includes('extension.explodeInClauseToLines'));
         assert.ok(commands.includes('inQueryGenerator.toggleSplitOnWhitespace'));
     });
 
@@ -347,5 +348,40 @@ describe('Extension Host Tests', () => {
                 'saved_default'
             );
         });
+    });
+
+    it('explode IN clause to lines replaces the selected clause with one value per line', async () => {
+        await activateExtension();
+
+        const editor = await openEditor("customer_id IN (123, 'Smith, John', 'O''Reilly', NULL)");
+        editor.selection = new vscode.Selection(0, 0, 0, editor.document.lineAt(0).text.length);
+        const lineEnding = editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+
+        await vscode.commands.executeCommand('extension.explodeInClauseToLines');
+
+        await waitForDocumentText(editor.document, `123${lineEnding}Smith, John${lineEnding}O'Reilly${lineEnding}NULL`);
+    });
+
+    it('explode IN clause to lines warns when the selection is not a valid SQL clause', async () => {
+        await activateExtension();
+
+        const editor = await openEditor('alpha\nbeta');
+        editor.selection = new vscode.Selection(0, 0, 1, editor.document.lineAt(1).text.length);
+
+        const warnings: string[] = [];
+
+        await withWindowMethodOverride(
+            'showWarningMessage',
+            async (message: string) => {
+                warnings.push(message);
+                return undefined;
+            },
+            async () => {
+                await vscode.commands.executeCommand('extension.explodeInClauseToLines');
+            }
+        );
+
+        assert.strictEqual(editor.document.getText(), 'alpha\nbeta');
+        assert.deepStrictEqual(warnings, ['Selection is not a valid SQL IN/NOT IN clause.']);
     });
 });

@@ -6,7 +6,7 @@ import {
     prepareClipboardValuesForColumnPaste,
     prepareClipboardValuesForDirectPaste
 } from './inputPreparation';
-import { parseText as pureParseText, DataTypeMode } from './pure';
+import { parseText as pureParseText, parseSqlInClauseValues, DataTypeMode } from './pure';
 import {
     applyClauseNullSafety,
     formatValueWithConfig,
@@ -164,6 +164,10 @@ export async function activate(context: vscode.ExtensionContext) {
         await processBatchData();
     });
 
+    let explodeInClauseDisposable = vscode.commands.registerCommand('extension.explodeInClauseToLines', async () => {
+        await explodeInClauseToLines(context);
+    });
+
     let toggleSplitCommand = vscode.commands.registerCommand('inQueryGenerator.toggleSplitOnWhitespace', async () => {
         const config = vscode.workspace.getConfiguration('inQueryGenerator');
         const currentValue = config.get<boolean>('splitOnWhitespace', false);
@@ -203,6 +207,7 @@ export async function activate(context: vscode.ExtensionContext) {
         pasteColumnInDisposable,
         pasteColumnNotInDisposable,
         batchProcessDisposable,
+        explodeInClauseDisposable,
         toggleSplitCommand,
         toggleNotInCommand
     );
@@ -684,6 +689,47 @@ async function processBatchDataFromArray(data: string[][]) {
             vscode.window.showInformationMessage(buildDeduplicationMessage('Batch', preparedStatement.removed));
         }
         showClauseNullWarning('IN', clauseSafety.nullLikeCount, clauseSafety.removedNullsFromNotIn);
+    }
+}
+
+async function explodeInClauseToLines(context: vscode.ExtensionContext) {
+    try {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage('No active text editor.');
+            return;
+        }
+
+        const selection = editor.selection;
+        const selectedText = editor.document.getText(selection);
+        if (!selectedText) {
+            vscode.window.showWarningMessage('No text selected.');
+            return;
+        }
+
+        let values: string[] | null;
+        try {
+            values = parseSqlInClauseValues(selectedText);
+        } catch (error) {
+            if (error instanceof Error && error.message === 'Malformed SQL IN clause.') {
+                vscode.window.showWarningMessage('Selected text contains a malformed SQL IN/NOT IN clause.');
+                return;
+            }
+            throw error;
+        }
+
+        if (values === null) {
+            vscode.window.showWarningMessage('Selection is not a valid SQL IN/NOT IN clause.');
+            return;
+        }
+
+        const lineEnding = editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+        await insertStatement(editor, values.join(lineEnding));
+        vscode.window.showInformationMessage(`Exploded ${values.length} value${values.length === 1 ? '' : 's'} into lines.`);
+        await trackUsageAndPromptRating(context, EXTENSION_ID);
+    } catch (error) {
+        recordExtensionError(error, 'explodeInClauseToLines');
+        vscode.window.showErrorMessage('Error exploding SQL IN clause.');
     }
 }
 
