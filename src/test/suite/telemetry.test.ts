@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import {
+  bucketSqlDialectFamily,
   bucketValueCount,
   buildSafeErrorProperties,
   clampString,
@@ -78,6 +79,17 @@ describe('Telemetry Privacy Tests', () => {
     assert.strictEqual(bucketValueCount(77), '11-100');
     assert.strictEqual(bucketValueCount(777), '101-1000');
     assert.strictEqual(bucketValueCount(1777), '1001+');
+  });
+
+  it('bucketSqlDialectFamily allow-lists known SQL families and collapses unknown IDs', () => {
+    assert.strictEqual(bucketSqlDialectFamily('mssql'), 'sqlserver');
+    assert.strictEqual(bucketSqlDialectFamily('oracle-sql'), 'oracle');
+    assert.strictEqual(bucketSqlDialectFamily('postgres'), 'postgres');
+    assert.strictEqual(bucketSqlDialectFamily('mysql'), 'mysql');
+    assert.strictEqual(bucketSqlDialectFamily('sparksql'), 'databricks_spark');
+    assert.strictEqual(bucketSqlDialectFamily('sql'), 'generic_sql');
+    assert.strictEqual(bucketSqlDialectFamily('plaintext'), 'non_sql_text');
+    assert.strictEqual(bucketSqlDialectFamily('some-third-party-id'), 'other');
   });
 
   it('sanitizeTelemetryEvent clamps fixed-width top-level fields and preserves session_id', () => {

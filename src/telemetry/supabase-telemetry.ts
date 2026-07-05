@@ -39,6 +39,7 @@ export interface SqlGenerationTelemetry {
   usedDistinct: boolean;
   duplicatesRemoved: number;
   uniqueValueCount: number;
+  dialectFamily: string;
   origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
 }
 
@@ -110,6 +111,7 @@ export class SupabaseTelemetryCollector implements TelemetryCollector {
       used_distinct: details.usedDistinct,
       duplicates_removed: details.duplicatesRemoved,
       value_count_bucket: bucketValueCount(details.uniqueValueCount),
+      dialect_family: details.dialectFamily,
       origin: details.origin
     });
   }

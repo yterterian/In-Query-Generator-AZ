@@ -102,6 +102,22 @@ export function bucketValueCount(count: number): string {
   return '1001+';
 }
 
+export function bucketSqlDialectFamily(languageId: string): string {
+  const id = languageId.toLowerCase();
+
+  if (id === 'mssql' || id === 'tsql') return 'sqlserver';
+  if (id === 'plsql' || id === 'oraclesql' || id === 'oracle-sql') return 'oracle';
+  if (id === 'pgsql' || id === 'postgres') return 'postgres';
+  if (id === 'mysql') return 'mysql';
+  if (id.includes('snowflake')) return 'snowflake';
+  if (id.includes('bigquery')) return 'bigquery';
+  if (id.includes('databricks') || id === 'sparksql' || id === 'hql') return 'databricks_spark';
+  if (id === 'sql' || id === 'sqlite') return 'generic_sql';
+  if (id === 'plaintext' || id === 'markdown' || id === 'untitled') return 'non_sql_text';
+
+  return 'other';
+}
+
 export function sanitizeTelemetryEvent(event: TelemetryEvent): TelemetryEvent {
   return {
     ...event,

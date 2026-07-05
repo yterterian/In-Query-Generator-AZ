@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SupabaseTelemetryCollector } from './telemetry/supabase-telemetry';
-import { generateUuidV7 } from './telemetry/privacy';
+import { bucketSqlDialectFamily, generateUuidV7 } from './telemetry/privacy';
 import {
     detectTableData,
     prepareClipboardValuesForColumnPaste,
@@ -88,6 +88,7 @@ function logSqlGenerationTelemetry(details: {
     usedDistinct: boolean;
     duplicatesRemoved: number;
     uniqueValueCount: number;
+    dialectFamily: string;
     origin: 'direct' | 'paste_special' | 'column' | 'batch' | 'copy';
 }): void {
     void telemetryCollector?.logSqlGeneration({
@@ -97,6 +98,7 @@ function logSqlGenerationTelemetry(details: {
         usedDistinct: details.usedDistinct,
         duplicatesRemoved: details.duplicatesRemoved,
         uniqueValueCount: details.uniqueValueCount,
+        dialectFamily: details.dialectFamily,
         origin: details.origin
     });
 }
@@ -223,6 +225,7 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             vscode.window.showWarningMessage('No active text editor.');
             return;
         }
+        const dialectFamily = bucketSqlDialectFamily(editor.document.languageId);
         const clipboardText = await vscode.env.clipboard.readText();
         if (!clipboardText) {
             vscode.window.showWarningMessage('Clipboard is empty.');
@@ -272,6 +275,7 @@ async function processAndPasteClipboardDirect(forceNotIn: boolean, distinctOverr
             usedDistinct: preparedStatement.useDistinct,
             duplicatesRemoved: preparedStatement.removed,
             uniqueValueCount: parsedData.length,
+            dialectFamily,
             origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'direct'
         });
         persistCurrentSessionSummary();
@@ -449,6 +453,7 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             vscode.window.showWarningMessage('No active text editor.');
             return;
         }
+        const dialectFamily = bucketSqlDialectFamily(editor.document.languageId);
         const clipboardText = await vscode.env.clipboard.readText();
         if (!clipboardText) {
             vscode.window.showWarningMessage('Clipboard is empty.');
@@ -508,6 +513,7 @@ async function processColumnPaste(forceNotIn: boolean, distinctOverride: boolean
             usedDistinct: preparedStatement.useDistinct,
             duplicatesRemoved: preparedStatement.removed,
             uniqueValueCount: values.length,
+            dialectFamily,
             origin: dataTypeModeOverride !== undefined || distinctOverride !== undefined ? 'paste_special' : 'column'
         });
         persistCurrentSessionSummary();
@@ -533,6 +539,7 @@ async function processSelection(context: vscode.ExtensionContext) {
     try {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
+            const dialectFamily = bucketSqlDialectFamily(editor.document.languageId);
             const selection = editor.selection;
             const selectedText = editor.document.getText(selection);
 
@@ -571,6 +578,7 @@ async function processSelection(context: vscode.ExtensionContext) {
                     usedDistinct: preparedStatement.useDistinct,
                     duplicatesRemoved: preparedStatement.removed,
                     uniqueValueCount: data.length,
+                    dialectFamily,
                     origin: 'copy'
                 });
                 persistCurrentSessionSummary();
@@ -631,6 +639,7 @@ async function processBatchData() {
 async function processBatchDataFromArray(data: string[][]) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
+    const dialectFamily = bucketSqlDialectFamily(editor.document.languageId);
 
     const headers = data[0];
     const columns = headers.map((header, index) => ({
@@ -682,6 +691,7 @@ async function processBatchDataFromArray(data: string[][]) {
             usedDistinct: preparedStatement.useDistinct,
             duplicatesRemoved: preparedStatement.removed,
             uniqueValueCount: values.length,
+            dialectFamily,
             origin: 'batch'
         });
         persistCurrentSessionSummary();
