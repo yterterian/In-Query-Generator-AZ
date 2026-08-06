@@ -262,17 +262,16 @@
     "test": "node ./out/test/runTest.js",
     "coverage": "c8 --reporter=html --reporter=text npm test",
     "pretest:pure": "npm run compile",
-    "test:pure": "mocha out/test/suite/pure.test.js out/test/suite/inputPreparation.test.js out/test/suite/telemetry.test.js",
+    "test:pure": "node ./out/test/suite/runUnitTests.js pure.test.js inputPreparation.test.js telemetry.test.js",
     "coverage:pure": "c8 --reporter=html --reporter=text npm run test:pure",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "pretest": "npm run compile",
     "pretest:csv": "npm run compile",
-    "test:csv": "mocha out/test/suite/csvParser.test.js"
+    "test:csv": "node ./out/test/suite/runUnitTests.js csvParser.test.js"
   },
   "devDependencies": {
     "@secretlint/node": "^10.2.2",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^14.14.6",
     "@types/vscode": "^1.50.0",
     "@typescript-eslint/eslint-plugin": "^8.33.0",
@@ -285,7 +284,6 @@
     "glob": "^10.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "mocha": "^10.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^4.0.3"
   },
